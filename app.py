@@ -15,7 +15,9 @@ app.config['REQUIRE_KEY'] = REQUIRE_KEY
 def init_db():
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''DROP TABLE IF EXISTS users''')  # Drop the existing table if it exists
+
+    # USERS
+    c.execute('''DROP TABLE IF EXISTS users''')
     c.execute('''CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, 
                     name TEXT, 
@@ -23,13 +25,33 @@ def init_db():
                     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                  )''')
 
+    # email_lists
+    c.execute('''DROP TABLE IF EXISTS email_lists''')  # Drop the existing table if it exists
+    c.execute('''CREATE TABLE IF NOT EXISTS email_lists (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    email_list_name TEXT
+                 )''')
+
+    # subscriptions to email lists
     c.execute('''DROP TABLE IF EXISTS user_subscriptions''')  # Drop the existing subscription table if it exists
     c.execute('''CREATE TABLE IF NOT EXISTS user_subscriptions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
-                    email_list_name TEXT,
+                    email_list_id INTEGER,
                     date_subscribed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(user_id) REFERENCES users(id)
+                    FOREIGN KEY(user_id) REFERENCES users(id),
+                    FOREIGN KEY(email_list_id) REFERENCES email_lists(id)
+                 )''')
+
+    #email history
+    c.execute('''DROP TABLE IF EXISTS email_history''')  # Drop the existing email history table if it exists
+    c.execute('''CREATE TABLE IF NOT EXISTS email_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    email_list_id INTEGER,
+                    date_sent TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(user_id) REFERENCES users(id),
+                    FOREIGN KEY(email_list_id) REFERENCES email_lists(id)
                  )''')
 
     # Insert example users
@@ -41,15 +63,32 @@ def init_db():
     c.executemany('''INSERT INTO users (name, email) 
                      VALUES (?, ?)''', example_users)
 
+    # Insert example email lists
+    example_email_lists = [
+        (1,'MyRecord weekly'),
+        (2,'DECIDE2')
+    ]
+    c.executemany('''INSERT INTO email_lists (id, email_list_name) VALUES (?, ?)''', example_email_lists)
+
+
     # Insert example subscriptions
     example_subscriptions = [
-        (1, 'MyRecord weekly'),
-        (2, 'MyRecord weekly'),
-        (3, 'MyRecord weekly'),
-        (3, 'DECIDE2')
+        (1, 1),  #user_id, email_list_id
+        (1, 2),  
+        (2, 1),  
+        (3, 2),  
     ]
-    c.executemany('''INSERT INTO user_subscriptions (user_id, email_list_name) 
-                     VALUES (?, ?)''', example_subscriptions)
+    c.executemany('''INSERT INTO user_subscriptions (user_id, email_list_id) VALUES (?, ?)''', example_subscriptions)               
+
+    # Insert example email history
+    example_email_history = [
+        (1, 1),  #user_id, email_list_id
+        (1, 1),  
+        (2, 1),  
+        (2, 1),  
+        (3, 2),  
+    ]
+    c.executemany('''INSERT INTO email_history (user_id, email_list_id) VALUES (?, ?)''', example_email_history)
 
     conn.commit()
     conn.close()
@@ -85,21 +124,21 @@ def get_all_users():
 
 #MANAGE SUBSCRIPTIONS
 # Function to add subscription for a user
-def add_subscription(user_id, email_list_name):
+def insert_subscription(user_id, email_list_id):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''INSERT INTO user_subscriptions (user_id, email_list_name) 
+    c.execute('''INSERT INTO user_subscriptions (user_id, email_list_id) 
                  VALUES (?, ?)''', 
-              (user_id, email_list_name))
+              (user_id, email_list_id))
     conn.commit()
     conn.close()
 
 # Function to remove subscription for a user
-def remove_subscription(user_id, email_list_name):
+def remove_subscription(user_id, email_list_id):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''DELETE FROM user_subscriptions WHERE user_id = ? AND email_list_name = ?''', 
-              (user_id, email_list_name))
+    c.execute('''DELETE FROM user_subscriptions WHERE user_id = ? AND email_list_id = ?''', 
+              (user_id, email_list_id))
     conn.commit()
     conn.close()
 
@@ -107,10 +146,31 @@ def remove_subscription(user_id, email_list_name):
 def get_user_subscriptions(user_id):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT id, email_list_name, date_subscribed FROM user_subscriptions WHERE user_id = ?''', (user_id,))
+    c.execute('''SELECT id, email_list_id, date_subscribed FROM user_subscriptions WHERE user_id = ?''', (user_id,))
     subscriptions = c.fetchall()
     conn.close()
     return subscriptions
+
+# MANAGE EMAILS
+# Function to add email sending history
+def add_email_sent(user_id, email_list_id):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''INSERT INTO email_history (user_id, email_list_id) 
+                 VALUES (?, ?)''', 
+              (user_id, email_list_id))
+    conn.commit()
+    conn.close()
+
+# Function to get email history for a user
+def get_user_email_history(user_id):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''SELECT email_list_id, date_sent FROM email_history WHERE user_id = ?''', (user_id,))
+    history = c.fetchall()
+    conn.close()
+    return history
+
 
 # APP ROUTES
 # Route to reset the database
@@ -186,8 +246,8 @@ def get_users():
     }
     return jsonify(response), 200
 
-# API endpoint to retrieve a user's subscriptions
-@app.route('/api/user_subscriptions/<int:user_id>', methods=['GET'])
+# API endpoint to retrieve a user's subscriptions and email history
+@app.route('/api/user/<int:user_id>', methods=['GET'])
 def user_subscriptions(user_id):
     api_key = request.headers.get('API-Key')
     if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
@@ -203,18 +263,32 @@ def user_subscriptions(user_id):
         return jsonify({'error': 'User not found'}), 404
 
     # Get user's subscriptions
-    subscriptions = get_user_subscriptions(user_id)
-    subscription_list = [{'id': sub[0], 'name': sub[1], 'date_subscribed': sub[2]} for sub in subscriptions]
+    c.execute('''SELECT id, email_list_id FROM user_subscriptions WHERE user_id = ?''', (user_id,))
+    subscriptions = c.fetchall()
+
+    # Get user's email history
+    email_history = get_user_email_history(user_id)
 
     conn.close()
-    return jsonify({'user_id': user_id, 'name': user[1], 'email': user[2], 'subscriptions': subscription_list}), 200
+
+    # Prepare subscription and email history data
+    subscription_list = [{'id': sub[0], 'email_list_id': sub[1]} for sub in subscriptions]
+    email_history_list = [{'email_list_id': hist[0], 'date_sent': hist[1]} for hist in email_history]
+
+    return jsonify({
+        'id': user_id,
+        'name': user[1],
+        'email': user[2],
+        'subscriptions': subscription_list,
+        'email_history': email_history_list
+    }), 200
 
 
 
 # API - SUBSCRIPTION MANAGEMENT
 # API endpoint to add a subscription for a user
-@app.route('/api/add_subscription/<int:user_id>/<string:email_list_name>', methods=['POST'])
-def add_subscription(user_id, email_list_name):
+@app.route('/api/add_subscription/<int:user_id>/<int:email_list_id>', methods=['POST'])
+def add_subscription(user_id, email_list_id):
     api_key = request.headers.get('API-Key')
     if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
         return jsonify({'error': 'Invalid API key'}), 401
@@ -229,13 +303,13 @@ def add_subscription(user_id, email_list_name):
         return jsonify({'error': 'User not found'}), 404
 
     # Add subscription
-    add_subscription(user_id, email_list_name)
+    insert_subscription(user_id, email_list_id)
     conn.close()
-    return jsonify({'message': f'Subscribed {user[1]} to {email_list_name}'}), 201
+    return jsonify({'message': f'Subscribed {user[1]} to {email_list_id}'}), 201
 
 # API endpoint to remove a subscription for a user
-@app.route('/api/delete_subscription/<int:user_id>/<string:email_list_name>', methods=['DELETE'])
-def delete_subscription(user_id, email_list_name):
+@app.route('/api/delete_subscription/<int:user_id>/<int:email_list_id>', methods=['DELETE'])
+def delete_subscription(user_id, email_list_id):
     api_key = request.headers.get('API-Key')
     if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
         return jsonify({'error': 'Invalid API key'}), 401
@@ -250,9 +324,12 @@ def delete_subscription(user_id, email_list_name):
         return jsonify({'error': 'User not found'}), 404
 
     # Remove subscription
-    remove_subscription(user_id, email_list_name)
+    remove_subscription(user_id, email_list_id)
     conn.close()
-    return jsonify({'message': f'Unsubscribed {user[1]} from {email_list_name}'}), 200
+    return jsonify({'message': f'Unsubscribed {user[1]} from {email_list_id}'}), 200
+
+
+
 
 if __name__ == '__main__':
     init_db()  # Initialize the database when the app starts
