@@ -44,14 +44,25 @@ def init_db():
                  )''')
 
     #email history
-    c.execute('''DROP TABLE IF EXISTS email_history''')  # Drop the existing email history table if it exists
-    c.execute('''CREATE TABLE IF NOT EXISTS email_history (
+    c.execute('''DROP TABLE IF EXISTS emails''')  # Drop the existing email history table if it exists
+    c.execute('''CREATE TABLE IF NOT EXISTS emails (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
                     email_list_id INTEGER,
                     date_sent TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(user_id) REFERENCES users(id),
                     FOREIGN KEY(email_list_id) REFERENCES email_lists(id)
+                 )''')
+
+    # Feedback table
+    c.execute('''CREATE TABLE IF NOT EXISTS email_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email_id INTEGER,
+                    user_id INTEGER,
+                    rating INTEGER,
+                    comment TEXT,
+                    FOREIGN KEY(email_id) REFERENCES emails(id),
+                    FOREIGN KEY(user_id) REFERENCES users(id)
                  )''')
 
     # Insert example users
@@ -81,14 +92,14 @@ def init_db():
     c.executemany('''INSERT INTO user_subscriptions (user_id, email_list_id) VALUES (?, ?)''', example_subscriptions)               
 
     # Insert example email history
-    example_email_history = [
+    example_emails = [
         (1, 1),  #user_id, email_list_id
         (1, 1),  
         (2, 1),  
         (2, 1),  
         (3, 2),  
     ]
-    c.executemany('''INSERT INTO email_history (user_id, email_list_id) VALUES (?, ?)''', example_email_history)
+    c.executemany('''INSERT INTO emails (user_id, email_list_id) VALUES (?, ?)''', example_emails)
 
     conn.commit()
     conn.close()
@@ -156,21 +167,40 @@ def get_user_subscriptions(user_id):
 def add_email_sent(user_id, email_list_id):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''INSERT INTO email_history (user_id, email_list_id) 
+    c.execute('''INSERT INTO emails (user_id, email_list_id) 
                  VALUES (?, ?)''', 
               (user_id, email_list_id))
     conn.commit()
     conn.close()
 
 # Function to get email history for a user
-def get_user_email_history(user_id):
+def get_user_emails(user_id):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT email_list_id, date_sent FROM email_history WHERE user_id = ?''', (user_id,))
+    c.execute('''SELECT email_list_id, date_sent FROM emails WHERE user_id = ?''', (user_id,))
     history = c.fetchall()
     conn.close()
     return history
 
+
+# FEEDBACK
+# Function to insert user feedback into the database
+def insert_feedback(email_id, user_id, rating, comment):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''INSERT INTO email_feedback (email_id, user_id, rating, comment) 
+                 VALUES (?, ?, ?, ?)''', (email_id, user_id, rating, comment))
+    conn.commit()
+    conn.close()
+
+# Function to get feedback for a specific email
+def get_email_feedback(email_id):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''SELECT * FROM email_feedback WHERE email_id = ?''', (email_id,))
+    feedback = c.fetchall()
+    conn.close()
+    return feedback
 
 # APP ROUTES
 # Route to reset the database
@@ -263,24 +293,24 @@ def user_subscriptions(user_id):
         return jsonify({'error': 'User not found'}), 404
 
     # Get user's subscriptions
-    c.execute('''SELECT id, email_list_id FROM user_subscriptions WHERE user_id = ?''', (user_id,))
+    c.execute('''SELECT email_list_id, date_subscribed FROM user_subscriptions WHERE user_id = ?''', (user_id,))
     subscriptions = c.fetchall()
 
     # Get user's email history
-    email_history = get_user_email_history(user_id)
+    emails = get_user_emails(user_id)
 
     conn.close()
 
     # Prepare subscription and email history data
-    subscription_list = [{'id': sub[0], 'email_list_id': sub[1]} for sub in subscriptions]
-    email_history_list = [{'email_list_id': hist[0], 'date_sent': hist[1]} for hist in email_history]
+    subscription_list = [{'email_list_id': sub[0],'date_subscribed': sub[1]} for sub in subscriptions]
+    emails_list = [{'email_list_id': hist[0], 'date_sent': hist[1]} for hist in emails]
 
     return jsonify({
         'id': user_id,
         'name': user[1],
         'email': user[2],
         'subscriptions': subscription_list,
-        'email_history': email_history_list
+        'emails': emails_list
     }), 200
 
 
@@ -328,7 +358,31 @@ def delete_subscription(user_id, email_list_id):
     conn.close()
     return jsonify({'message': f'Unsubscribed {user[1]} from {email_list_id}'}), 200
 
+#PROVIDING FEEDBACK
+# Update API endpoint to add user feedback
+@app.route('/api/add_feedback/<int:email_id>', methods=['POST'])
+def add_feedback(email_id):
 
+    data = request.json
+    user_id = data.get('user_id')
+    rating = data.get('rating')
+    comment = data.get('comment')
+
+    if not user_id or not rating or not comment:
+        return jsonify({'error': 'User ID, rating, and comment are required'}), 400
+
+    # Check if the email history ID exists
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''SELECT * FROM emails WHERE id = ?''', (email_id,))
+    emails = c.fetchone()
+    conn.close()
+
+    if not emails:
+        return jsonify({'error': 'Email history not found'}), 404
+
+    insert_feedback(email_id, user_id, rating, comment)
+    return jsonify({'message': 'Feedback added successfully'}), 201
 
 
 if __name__ == '__main__':
