@@ -3,12 +3,13 @@ from flask import current_app as app
 import sqlite3
 from datetime import datetime
 
-from config import API_KEY
+from config import API_KEY, REQUIRE_KEY
 
 app = Flask(__name__)
 
 # Configuration for the API key
 app.config['API_KEY'] = API_KEY
+app.config['REQUIRE_KEY'] = REQUIRE_KEY
 
 # Function to initialize the database with the updated schema
 def init_db():
@@ -71,37 +72,12 @@ def reset_database():
 def index():
     return render_template('index.html')
 
-# Route to display all users in a table
-@app.route('/ui/users')
-def users():
-    users = get_all_users()
-    return render_template('users.html', users=users)
-
-# Route to display the form for user input
-@app.route('/ui/add_user')
-def signup():
-    return render_template('signup.html')
-
-# Route to handle form submission
-@app.route('/submit', methods=['POST'])
-def submit():
-    name = request.form['name']
-    email = request.form['email']
-    latitude = request.form['latitude']
-    longitude = request.form['longitude']
-    radius_km = request.form['radius_km']
-    indicia_id = request.form['indicia_id']
-    insert_user(name, email, latitude, longitude, radius_km, indicia_id)
-    return redirect(url_for('signup'))
-
-
-
 
 # API endpoint to add users
 @app.route('/api/add_user', methods=['GET','POST'])
 def add_user():
     api_key = request.headers.get('API-Key')
-    if api_key != app.config['API_KEY']:
+    if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
         return jsonify({'error': 'Invalid API key'}), 401
 
     data = request.json
@@ -122,8 +98,8 @@ def add_user():
 @app.route('/api/users', methods=['GET'])
 def get_users():
     api_key = request.headers.get('API-Key')
-    #if api_key != app.config['API_KEY']:
-    #    return jsonify({'error': 'Invalid API key'}), 401
+    if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
+        return jsonify({'error': 'Invalid API key'}), 401
 
     users = get_all_users()
     user_list = []
