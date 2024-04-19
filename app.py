@@ -13,7 +13,7 @@ app.config['REQUIRE_KEY'] = REQUIRE_KEY
 
 # Function to initialize the database with the updated schema
 def init_db():
-    conn = sqlite3.connect('users.db')
+    conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
     c.execute('''DROP TABLE IF EXISTS users''')  # Drop the existing table if it exists
     c.execute('''CREATE TABLE IF NOT EXISTS users (
@@ -43,7 +43,7 @@ def init_db():
 
 # Function to insert user data into the database
 def insert_user(name, email, latitude, longitude, radius_km, indicia_id):
-    conn = sqlite3.connect('users.db')
+    conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
     c.execute('''INSERT INTO users (name, email, latitude, longitude, radius_km, indicia_id) 
                  VALUES (?, ?, ?, ?, ?, ?)''', 
@@ -53,7 +53,7 @@ def insert_user(name, email, latitude, longitude, radius_km, indicia_id):
 
 # Function to get all users from the database
 def get_all_users():
-    conn = sqlite3.connect('users.db')
+    conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
     c.execute('''SELECT id, name, email, date_created, latitude, longitude, radius_km, indicia_id FROM users''')
     users = c.fetchall()
