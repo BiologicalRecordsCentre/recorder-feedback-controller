@@ -20,21 +20,17 @@ def init_db():
                     id INTEGER PRIMARY KEY AUTOINCREMENT, 
                     name TEXT, 
                     email TEXT,
-                    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    latitude REAL,
-                    longitude REAL,
-                    radius_km REAL,
-                    indicia_id TEXT
+                    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                  )''')
 
     # Insert example users
     example_users = [
-        ('John Doe', 'john@example.com', 40.7128, -74.0060, 10, 'abc123'),
-        ('Jane Smith', 'jane@example.com', 34.0522, -118.2437, 15, 'def456'),
-        ('Alice Johnson', 'alice@example.com', 51.5074, -0.1278, 20, 'ghi789')
+        ('John Doe', 'john@example.com'),
+        ('Jane Smith', 'jane@example.com'),
+        ('Alice Johnson', 'alice@example.com')
     ]
-    c.executemany('''INSERT INTO users (name, email, latitude, longitude, radius_km, indicia_id) 
-                     VALUES (?, ?, ?, ?, ?, ?)''', example_users)
+    c.executemany('''INSERT INTO users (name, email) 
+                     VALUES (?, ?)''', example_users)
 
     conn.commit()
     conn.close()
@@ -42,12 +38,20 @@ def init_db():
 
 
 # Function to insert user data into the database
-def insert_user(name, email, latitude, longitude, radius_km, indicia_id):
+def insert_user(name, email):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''INSERT INTO users (name, email, latitude, longitude, radius_km, indicia_id) 
-                 VALUES (?, ?, ?, ?, ?, ?)''', 
-              (name, email, latitude, longitude, radius_km, indicia_id))
+    c.execute('''INSERT INTO users (name, email) 
+                 VALUES (?, ?)''', 
+              (name, email))
+    conn.commit()
+    conn.close()
+
+# Function to remove a user from the database
+def remove_user(user_id):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''DELETE FROM users WHERE id = ?''', (user_id,))
     conn.commit()
     conn.close()
 
@@ -55,7 +59,7 @@ def insert_user(name, email, latitude, longitude, radius_km, indicia_id):
 def get_all_users():
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT id, name, email, date_created, latitude, longitude, radius_km, indicia_id FROM users''')
+    c.execute('''SELECT id, name, email, date_created FROM users''')
     users = c.fetchall()
     conn.close()
     return users
@@ -83,16 +87,32 @@ def add_user():
     data = request.json
     name = data.get('name')
     email = data.get('email')
-    latitude = data.get('latitude')
-    longitude = data.get('longitude')
-    radius_km = data.get('radius_km')
-    indicia_id  = data.get('indicia_id')
 
     if not name or not email:
         return jsonify({'error': 'Name and email are required'}), 400
 
-    insert_user(name, email, latitude, longitude, radius_km, indicia_id)
+    insert_user(name, email)
     return jsonify({'message': 'User added successfully'}), 201
+
+# API endpoint to remove a user
+@app.route('/api/remove_user/<int:user_id>', methods=['GET','POST','DELETE'])
+def delete_user(user_id):
+    api_key = request.headers.get('API-Key')
+    if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
+        return jsonify({'error': 'Invalid API key'}), 401
+
+    # Check if the user exists
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''SELECT * FROM users WHERE id = ?''', (user_id,))
+    user = c.fetchone()
+    conn.close()
+
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    remove_user(user_id)
+    return jsonify({'message': 'User removed successfully'}), 200
 
 # API endpoint to retrieve user information
 @app.route('/api/users', methods=['GET'])
@@ -108,11 +128,7 @@ def get_users():
             'id': user[0],
             'name': user[1],
             'email': user[2],
-            'date_created': user[3],
-            'latitude': user[4],
-            'longitude': user[5],
-            'radius_km': user[6],
-            'indicia_id': user[7]
+            'date_created': user[3]
         }
         user_list.append(user_dict)
     response = {
