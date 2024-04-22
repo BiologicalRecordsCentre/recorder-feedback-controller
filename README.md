@@ -21,6 +21,7 @@ App requirements:
     * Admin log-in
  * Host email generation R code: https://github.com/BiologicalRecordsCentre/recorder-feedback
  * Send emails on a schedule
+ * Export user provided feedback
 
 ## Development start up
 
