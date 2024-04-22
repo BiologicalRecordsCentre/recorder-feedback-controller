@@ -1,5 +1,7 @@
 # Recorder Feedback Controller App
 
+## Overview
+
 A flask app for user management and dispatch of personalised feedback for biological recording.
 
 App requirements:
@@ -19,3 +21,11 @@ App requirements:
     * Admin log-in
  * Host email generation R code: https://github.com/BiologicalRecordsCentre/recorder-feedback
  * Send emails on a schedule
+
+## Development start up
+
+```
+pip install flask
+cd recorder-feedback-controller
+python app.py
+```
