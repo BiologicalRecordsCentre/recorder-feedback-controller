@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Page</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Email Lists</h1>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for email_list in email_lists %}
+                <tr>
+                    <td>{{ email_list[0] }}</td>
+                    <td>{{ email_list[1] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h1>Users and Subscriptions</h1>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Email List</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user_subscription in users_subscriptions %}
+                <tr>
+                    <td>{{ user_subscription[0] }}</td>
+                    <td>{{ user_subscription[1] }}</td>
+                    <td>{{ user_subscription[2] }}</td>
+                    <td>{{ user_subscription[3] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h1>Email History</h1>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Name</th>
+                    <th>Email List</th>
+                    <th>Date Sent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for history in email_history %}
+                <tr>
+                    <td>{{ history[0] }}</td>
+                    <td>{{ history[1] }}</td>
+                    <td>{{ history[2] }}</td>
+                    <td>{{ history[3] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

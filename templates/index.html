@@ -3,10 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controller home</title>
+    <title>Recorder Feedback Controller</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Welcome to the controller</h1>
-    <p><a href="/api/users">Users</a></p>
+    <div class="container">
+        <h1>Welcome to the controller. Please sign in.</h1>
+        <p><a href="/api/users">Users</a></p>
+        <p><a href="/api/user/1">User 1</a></p>
+        <p><a href="/api/user/2">User 2</a></p>
+        <p><a href="/api/user/3">User 3</a></p>
+    </div>
 </body>
 </html>

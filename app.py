@@ -1,15 +1,28 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask import current_app as app
+from flask_mail import Mail, Message
+from apscheduler.schedulers.background import BackgroundScheduler
 import sqlite3
 from datetime import datetime
 
-from config import API_KEY, REQUIRE_KEY
+from config import API_KEY, REQUIRE_KEY, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER
 
 app = Flask(__name__)
 
 # Configuration for the API key
 app.config['API_KEY'] = API_KEY
 app.config['REQUIRE_KEY'] = REQUIRE_KEY
+
+# Flask-mail config
+app.config['MAIL_SERVER'] = MAIL_SERVER
+app.config['MAIL_PORT'] = MAIL_PORT
+app.config['MAIL_USE_TLS'] = MAIL_USE_TLS
+app.config['MAIL_USERNAME'] = MAIL_USERNAME
+app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
+app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
+
+# Initialize Flask-Mail
+mail = Mail(app)
 
 # Function to initialize the database
 def init_db():
@@ -383,6 +396,77 @@ def add_feedback(email_id):
 
     insert_feedback(email_id, user_id, rating, comment)
     return jsonify({'message': 'Feedback added successfully'}), 201
+
+# Route to unsubscribe a user from an email list
+@app.route('/unsubscribe/<int:user_id>/<int:email_list_id>', methods=['GET', 'POST'])
+def unsubscribe(user_id, email_list_id):
+    if request.method == 'GET':
+        # You may want to check if the user is subscribed to the email list before rendering the page
+        return render_template('unsubscribe.html', user_id=user_id, email_list_id=email_list_id)
+    elif request.method == 'POST':
+        # Process the unsubscribe action
+        remove_subscription(user_id, email_list_id)
+        return redirect(url_for('index'))  # Redirect to homepage or any other page after unsubscribing
+
+# Route for the admin page
+@app.route('/admin')
+def admin():
+    # Fetch email lists
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''SELECT * FROM email_lists''')
+    email_lists = c.fetchall()
+
+    # Fetch users and their subscriptions
+    c.execute('''SELECT users.id, users.name, users.email, email_lists.email_list_name
+                 FROM users
+                 LEFT JOIN user_subscriptions ON users.id = user_subscriptions.user_id
+                 LEFT JOIN email_lists ON user_subscriptions.email_list_id = email_lists.id''')
+    users_subscriptions = c.fetchall()
+
+    # Fetch email history
+    c.execute('''SELECT users.id, users.name, email_lists.email_list_name, emails.date_sent
+                 FROM users
+                 LEFT JOIN emails ON users.id = emails.user_id
+                 LEFT JOIN email_lists ON emails.email_list_id = email_lists.id''')
+    email_history = c.fetchall()
+
+    conn.close()
+
+    return render_template('admin.html', email_lists=email_lists, users_subscriptions=users_subscriptions, email_history=email_history)
+
+
+
+
+
+
+
+# Function to send email
+def send_email():
+    with app.app_context():
+        msg = Message(subject="Test Email", recipients=["simrol@ceh.ac.uk"])
+        msg.body = "This is a test email sent from Flask."
+        mail.send(msg)
+        print("Email sent successfully at", datetime.now())
+
+# Route to trigger sending of test email
+@app.route('/send_test_email', methods=['GET', 'POST'])
+def send_test_email():
+    if request.method == 'POST':
+        send_email()  # Call the function to send the email
+        return redirect(url_for('index'))  # Redirect to homepage or any other page
+    return render_template('send_test_email.html')
+
+
+
+# # Initialize scheduler
+# scheduler = BackgroundScheduler()
+# scheduler.start()
+
+# # Schedule the email sending job
+# scheduler.add_job(send_email, 'interval', minutes=5)  # Send email every 5 minutes
+
+
 
 
 if __name__ == '__main__':
