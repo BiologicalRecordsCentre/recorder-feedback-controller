@@ -1,5 +1,6 @@
 data
 config.py
+recorder_feedback
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

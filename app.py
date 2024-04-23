@@ -1,14 +1,16 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
 from flask import current_app as app
 from flask_mail import Mail, Message
 from apscheduler.schedulers.background import BackgroundScheduler
 import sqlite3
 from datetime import datetime
+import csv
 
-from config import API_KEY, REQUIRE_KEY, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER
+from config import API_KEY, REQUIRE_KEY, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_RECIPIENT
 
 app = Flask(__name__)
 
+### CONFIG ----------------------
 # Configuration for the API key
 app.config['API_KEY'] = API_KEY
 app.config['REQUIRE_KEY'] = REQUIRE_KEY
@@ -68,6 +70,7 @@ def init_db():
                  )''')
 
     # Feedback table
+    c.execute('''DROP TABLE IF EXISTS email_feedback''')  # Drop the existing email history table if it exists
     c.execute('''CREATE TABLE IF NOT EXISTS email_feedback (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     email_id INTEGER,
@@ -114,10 +117,20 @@ def init_db():
     ]
     c.executemany('''INSERT INTO emails (user_id, email_list_id) VALUES (?, ?)''', example_emails)
 
+    # Insert example feedback
+    example_feedback = [
+        (1, 1, 1, "Too big"),  
+        (2, 1, 2, "Too small"),  
+        (3, 2, 3, "Too wide"),  
+        (4, 2, 4, "Too narrow"),  
+        (5, 3, 5, "Just right"),  
+    ]
+    c.executemany('''INSERT INTO email_feedback (email_id, user_id, rating, comment) VALUES (?, ?, ?, ?)''', example_feedback)
+
     conn.commit()
     conn.close()
 
-
+### DATABASE HELPERS ------------------------------
 # MANAGE USERS
 # Function to insert user data into the database
 def insert_user(name, email):
@@ -215,17 +228,8 @@ def get_email_feedback(email_id):
     conn.close()
     return feedback
 
-# APP ROUTES
-# Route to reset the database
-@app.route('/reset_database')
-def reset_database():
-    init_db()  # Call the function to initialize the database and add example users
-    return 'Database reset successfully'
+### APP ROUTES ---------------------------
 
-# Route to display homepage
-@app.route('/')
-def index():
-    return render_template('index.html')
 
 
 #API - USER MANAGEMENT
@@ -397,6 +401,18 @@ def add_feedback(email_id):
     insert_feedback(email_id, user_id, rating, comment)
     return jsonify({'message': 'Feedback added successfully'}), 201
 
+### USER INTERFACE ---------------------------
+# Route to reset the database
+@app.route('/reset_database')
+def reset_database():
+    init_db()  # Call the function to initialize the database and add example users
+    return 'Database reset successfully'
+
+# Route to display homepage
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 # Route to unsubscribe a user from an email list
 @app.route('/unsubscribe/<int:user_id>/<int:email_list_id>', methods=['GET', 'POST'])
 def unsubscribe(user_id, email_list_id):
@@ -406,7 +422,8 @@ def unsubscribe(user_id, email_list_id):
     elif request.method == 'POST':
         # Process the unsubscribe action
         remove_subscription(user_id, email_list_id)
-        return redirect(url_for('index'))  # Redirect to homepage or any other page after unsubscribing
+        return render_template('unsubscribed.html') # Redirect to homepage or any other page after unsubscribing
+
 
 # Route for the admin page
 @app.route('/admin')
@@ -433,19 +450,54 @@ def admin():
 
     conn.close()
 
-    return render_template('admin.html', email_lists=email_lists, users_subscriptions=users_subscriptions, email_history=email_history)
+    jobs = scheduler.get_jobs()
+
+    return render_template('admin.html', email_lists=email_lists, users_subscriptions=users_subscriptions, email_history=email_history, jobs=jobs)
 
 
+# Export data
+# Function to fetch data from the database and format it as CSV
+def export_data():
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+
+    # Query emails table joined with email_feedback table
+    c.execute('''SELECT e.email_list_id, e.user_id, e.id AS email_id, e.date_sent,
+                        f.id AS feedback_id, f.rating, f.comment
+                 FROM emails e
+                 LEFT JOIN email_feedback f ON e.id = f.email_id AND e.user_id = f.user_id''')
+    data = c.fetchall()
+
+    conn.close()
+
+    # Format data as CSV
+    csv_data = [
+        ['email_list_id', 'user_id', 'email_id', 'date_sent', 'feedback_id', 'rating', 'comment'],
+        *data
+    ]
+
+    return csv_data
+
+# route to actually export it
+@app.route('/export_data')
+def export_data_page():
+    # Fetch data
+    data = export_data()
+
+    # Set up CSV response
+    csv_data = ''.join([','.join(map(str, row)) + '\n' for row in data])
+    response = Response(csv_data, mimetype='text/csv')
+    response.headers['Content-Disposition'] = 'attachment; filename=data.csv'
+
+    return response
 
 
-
-
-
+### SENDING EMAILS FUNCTIONALITY -----------------------
 # Function to send email
-def send_email():
+def send_email(subject,recipients,body):
     with app.app_context():
-        msg = Message(subject="Test Email", recipients=["simrol@ceh.ac.uk"])
-        msg.body = "This is a test email sent from Flask."
+        msg = Message(subject=subject, recipients=recipients)
+        msg.body = body
         mail.send(msg)
         print("Email sent successfully at", datetime.now())
 
@@ -453,22 +505,46 @@ def send_email():
 @app.route('/send_test_email', methods=['GET', 'POST'])
 def send_test_email():
     if request.method == 'POST':
-        send_email()  # Call the function to send the email
+        send_email("Test email",TEST_RECIPIENT,"This is a test email sent from Flask.")  # Call the function to send the email
         return redirect(url_for('index'))  # Redirect to homepage or any other page
     return render_template('send_test_email.html')
 
+# Initialize scheduler
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+# Schedule the test email sending job
+#scheduler.add_job(send_email, 'interval',args=['Test scheduled email',[TEST_RECIPIENT],"This is a test email sent from Flask sent via a scheduler."], minutes=5) # Send email every 5 minutes
+
+# Function to export users from the database to the csv used in recorder-feedback
+def export_users_csv(file):
+    # Query users from your database
+    users = get_all_users()
+
+    # Define CSV file headers
+    fields = ['ID', 'Name', 'Email', 'Date Created']
+
+    # Create a CSV file in memory
+    with open(file, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+
+        # Write headers to the CSV file
+        writer.writerow(fields)
+
+        # Write user data to the CSV file
+        for user in users:
+            writer.writerow(user)
+
+    return file #return the filename
 
 
-# # Initialize scheduler
-# scheduler = BackgroundScheduler()
-# scheduler.start()
-
-# # Schedule the email sending job
-# scheduler.add_job(send_email, 'interval', minutes=5)  # Send email every 5 minutes
+#function to trigger the email content generation #TODO
+# def generate_email_content(script):
+#     export_users_csv("recorder_feedback/data/users.csv")
+#     return
 
 
-
-
+### APP ----------------
 if __name__ == '__main__':
     init_db()  # Initialize the database when the app starts
     app.run(debug=True)

@@ -8,7 +8,17 @@
 </head>
 <body>
     <div class="container">
-        <h1>Email Lists</h1>
+        <h1>Admin Panel</h1>
+        
+        <h2>Quick links</h2>
+        <p><a href="/api/users">Users</a></p>
+        <p><a href="/api/user/1">User 1</a></p>
+        <p><a href="/api/user/2">User 2</a></p>
+        <p><a href="/api/user/3">User 3</a></p>
+        <p><a href="/send_test_email">Send test email</a></p>
+        <p><a href="/export_data">Export data</a></p>
+
+        <h2>Email Lists</h1>
         <table border="1">
             <thead>
                 <tr>
@@ -26,7 +36,7 @@
             </tbody>
         </table>
 
-        <h1>Users and Subscriptions</h1>
+        <h2>Users and Subscriptions</h1>
         <table border="1">
             <thead>
                 <tr>
@@ -48,7 +58,7 @@
             </tbody>
         </table>
 
-        <h1>Email History</h1>
+        <h2>Email History</h1>
         <table border="1">
             <thead>
                 <tr>
@@ -65,6 +75,34 @@
                     <td>{{ history[1] }}</td>
                     <td>{{ history[2] }}</td>
                     <td>{{ history[3] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Scheduled send</h1>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Function</th>
+                    <th>Arguments</th>
+                    <th>Trigger</th>
+                    <th>Max instances</th>
+                    <th>Next run</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in jobs %}
+                <tr>
+                    <td>{{ job.id }}</td>
+                    <td>{{ job.name }}</td>
+                    <td>{{ job.func }}</td>
+                    <td>{{ job.args }}</td>
+                    <td>{{ job.trigger }}</td>
+                    <td>{{ job.max_instances }}</td>
+                    <td>{{ job.next_run_time }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
