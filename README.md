@@ -25,8 +25,38 @@ App requirements:
 
 ## Development start up
 
+### Get the code
+
+Clone repo
+
+Navigate inside folder
+`cd recorder-feedback-controller`
+
+### Initial set up
+
+Create the config.py by copying from config_example.py and filling in details
+
+Create a folder named `data`
+
 ```
 pip install flask
-cd recorder-feedback-controller
+```
+
+### Run the app
+
+```
 python app.py
 ```
+
+
+## Database description
+
+
+
+
+## Endpoints
+
+Endpoints
+
+
+# Usage
