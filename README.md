@@ -71,14 +71,88 @@ python app.py
 
 Then navigate to `http://127.0.0.1:5000/`
 
-## Database description
+The database structure described in your Flask application code consists of several interconnected tables designed to manage users, email lists, subscriptions, email history, and feedback. Below is a detailed explanation of each table and its relationships:
 
-to do
+## App functionality
 
-## Endpoints
+### Tables and Schema
 
-to do
+1. **Users Table**
+   - **Purpose:** To store user information.
+   - **Columns:**
+     - `id`: Integer, Primary Key, Auto-incremented.
+     - `name`: Text, stores the user's name.
+     - `email`: Text, stores the user's email.
+     - `date_created`: Timestamp, stores the date and time the user was created, defaulting to the current timestamp.
 
-# Usage
+2. **Email Lists Table**
+   - **Purpose:** To store different email lists.
+   - **Columns:**
+     - `id`: Integer, Primary Key, Auto-incremented.
+     - `email_list_name`: Text, stores the name of the email list.
 
-to do
+3. **User Subscriptions Table**
+   - **Purpose:** To link users to email lists, representing their subscriptions.
+   - **Columns:**
+     - `id`: Integer, Primary Key, Auto-incremented.
+     - `user_id`: Integer, Foreign Key referencing `users(id)`, stores the ID of the user.
+     - `email_list_id`: Integer, Foreign Key referencing `email_lists(id)`, stores the ID of the email list.
+     - `date_subscribed`: Timestamp, stores the date and time the user subscribed, defaulting to the current timestamp.
+
+4. **Emails Table**
+   - **Purpose:** To track the emails sent to users.
+   - **Columns:**
+     - `id`: Integer, Primary Key, Auto-incremented.
+     - `user_id`: Integer, Foreign Key referencing `users(id)`, stores the ID of the user.
+     - `email_list_id`: Integer, Foreign Key referencing `email_lists(id)`, stores the ID of the email list.
+     - `date_sent`: Timestamp, stores the date and time the email was sent, defaulting to the current timestamp.
+
+5. **Email Feedback Table**
+   - **Purpose:** To store feedback provided by users for specific emails.
+   - **Columns:**
+     - `id`: Integer, Primary Key, Auto-incremented.
+     - `email_id`: Integer, Foreign Key referencing `emails(id)`, stores the ID of the email.
+     - `user_id`: Integer, Foreign Key referencing `users(id)`, stores the ID of the user.
+     - `rating`: Integer, stores the user's rating of the email.
+     - `comment`: Text, stores the user's comment on the email.
+
+### Relationships Between Tables
+
+- **Users** and **Email Lists** are connected through the **User Subscriptions** table, forming a many-to-many relationship.
+- **Users** and **Emails** are connected through the **Emails** table, where each record represents an email sent to a user.
+- **Emails** and **Email Feedback** are connected through the **Email Feedback** table, which captures user feedback on specific emails.
+
+### Functions
+
+The code includes several helper functions to manage the data:
+
+- **User Management:**
+  - `insert_user(name, email)`: Adds a new user.
+  - `remove_user(user_id)`: Deletes a user.
+  - `get_all_users()`: Retrieves all users.
+  - `get_users_by_email_list(email_list_id)`: Retrieves users subscribed to a specific email list.
+
+- **Subscription Management:**
+  - `insert_subscription(user_id, email_list_id)`: Adds a subscription for a user.
+  - `remove_subscription(user_id, email_list_id)`: Removes a subscription for a user.
+  - `get_user_subscriptions(user_id)`: Retrieves all subscriptions for a user.
+
+- **Email Management:**
+  - `add_email_sent(user_id, email_list_id)`: Logs an email sent to a user.
+  - `get_user_emails(user_id)`: Retrieves the email history for a user.
+
+- **Feedback Management:**
+  - `insert_feedback(email_id, user_id, rating, comment)`: Adds feedback for an email.
+  - `get_email_feedback(email_id)`: Retrieves feedback for a specific email.
+
+### API Endpoints
+
+The application provides several API endpoints to manage users, subscriptions, and feedback, and to interact with the database:
+
+- `/api/add_user`: Adds a new user.
+- `/api/remove_user/<int:user_id>`: Deletes a user.
+- `/api/users`: Retrieves all users.
+- `/api/user/<int:user_id>`: Retrieves a user's subscriptions and email history.
+- `/api/add_subscription/<int:user_id>/<int:email_list_id>`: Adds a subscription for a user.
+- `/api/delete_subscription/<int:user_id>/<int:email_list_id>`: Removes a subscription for a user.
+- `/api/add_feedback/<int:email_id>`: Adds feedback for an email.
