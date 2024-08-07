@@ -25,12 +25,37 @@ App requirements:
 
 ## Development start up
 
+### Install Python, pip and virtualenv
+
+This has been developed with Python 3.12. pip is required for package management.
+
+Python installation: https://www.python.org/downloads/ (or from the Software Centre if at UKCEH). Ensure it has been added to PATH environment variable https://realpython.com/add-python-to-path/
+pip installation: https://pip.pypa.io/en/stable/installation/
+Install virtualvenv: `python -m pip install virtualenv`
+
 ### Get the code
 
-Clone repo
-
-Navigate inside folder
+Clone repo:
+`git clone https://github.com/simonrolph/recorder-feedback-controller.git`
+   
+Navigate inside folder:
 `cd recorder-feedback-controller`
+
+### Install packages
+
+#### Option 1: Using virtualenv (preferred)
+
+Create virtualenv
+`python -m virvualenv venv`
+
+Activate the virtualenv (not possible on UKCEH managed machines because of IT policies)
+`venv\Scripts\activate` (windows)
+`source venv/bin/activate` (unix)
+
+#### Option 2: Not using virtualenv
+
+Install packages using pip to the user library
+`python -m pip install flask flask_mail apscheduler pyyaml`
 
 ### Initial set up
 
@@ -38,25 +63,22 @@ Create the config.py by copying from config_example.py and filling in details
 
 Create a folder named `data`
 
-```
-pip install flask
-```
-
 ### Run the app
 
 ```
 python app.py
 ```
 
+Then navigate to `http://127.0.0.1:5000/`
 
 ## Database description
 
-
-
+to do
 
 ## Endpoints
 
-Endpoints
-
+to do
 
 # Usage
+
+to do
