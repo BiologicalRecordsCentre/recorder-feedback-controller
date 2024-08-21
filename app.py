@@ -9,7 +9,7 @@ from time import sleep
 from yaml import safe_load
 import subprocess
 
-from config import API_KEY, REQUIRE_KEY, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_RECIPIENT, RSCRIPT_PATH
+from config import API_KEY, REQUIRE_KEY, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_RECIPIENT, RSCRIPT_PATH, ADMIN_PASSWORD
 
 app = Flask(__name__)
 
@@ -17,6 +17,7 @@ app = Flask(__name__)
 # Configuration for the API key
 app.config['API_KEY'] = API_KEY
 app.config['REQUIRE_KEY'] = REQUIRE_KEY
+app.config['ADMIN_PASSWORD'] = ADMIN_PASSWORD
 
 # Flask-mail config
 app.config['MAIL_SERVER'] = MAIL_SERVER
@@ -27,7 +28,27 @@ app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
 app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
 
 
-# R config
+# Function to check authentication
+def check_auth(username, password):
+    """Check if a username/password combination is valid."""
+    return username == 'admin' and password == app.config['ADMIN_PASSWORD']
+
+# Function to request authentication
+def authenticate():
+    """Send a 401 response that enables basic auth"""
+    return Response(
+        'Could not verify your login.\n'
+        'You must provide valid credentials to access this page.', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+# Decorator to require authentication
+def requires_auth(f):
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated
 
 # Initialize Flask-Mail
 mail = Mail(app)
@@ -456,6 +477,7 @@ def unsubscribe(user_id, email_list_id):
 
 # Route for the admin page
 @app.route('/admin')
+@requires_auth
 def admin():
     # Fetch email lists
     conn = sqlite3.connect('data/users.db')
@@ -481,9 +503,14 @@ def admin():
 
     jobs = scheduler.get_jobs()
 
-    generate_content_and_send_emails(1)
-
     return render_template('admin.html', email_lists=email_lists, users_subscriptions=users_subscriptions, email_history=email_history, jobs=jobs)
+
+@app.route('/logout')
+def logout():
+    """Simulate a logout by sending a 401 response."""
+    return Response(
+        'You have been logged out.', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
 
 # Export data
@@ -543,6 +570,41 @@ def send_test_email():
 # Initialize scheduler
 scheduler = BackgroundScheduler()
 scheduler.start()
+
+@app.route('/create-job', methods=['GET'])
+def create_job_form():
+
+    # Fetch email lists
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''SELECT * FROM email_lists''')
+    email_lists = c.fetchall()
+
+    """Render the form to create a new scheduled job."""
+    return render_template('create_job.html',email_lists=email_lists)
+
+@app.route('/create-job', methods=['POST'])
+def create_job():
+    """Handle creating a new scheduled job."""
+    job_name = request.form['job_name']
+    email_list_id = request.form['email_list']
+    start_date_str = request.form['start_datetime']
+    days = int(request.form['days'])
+
+    
+    # Parse the start date string into a datetime object
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%dT%H:%M')
+    except ValueError:
+        # Handle the error, e.g., return an error message to the user
+        return "Invalid date format. Please use YYYY-MM-DDTHH:MM format.", 400
+
+    #days= request.form['days']
+    args = [email_list_id]
+
+    scheduler.add_job(generate_content_and_send_emails, 'interval',args=args,start_date = start_date,name = job_name,days = days)
+
+    return redirect(url_for('index'))
 
 # Schedule the test email sending job
 #scheduler.add_job(send_email, 'interval',args=['Test scheduled email',[TEST_RECIPIENT],"This is a test email sent from Flask sent via a scheduler."], minutes=5) # Send email every 5 minutes

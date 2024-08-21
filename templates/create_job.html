@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create a Scheduled Job</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+    <h1>Create a New Scheduled Job</h1>
+        <form action="{{ url_for('create_job') }}" method="POST">
+            <label for="job_name">Job Name:</label><br>
+            <input type="text" id="job_name" name="job_name" required><br><br>
+
+            <label for="email_list">Task:</label><br>
+            <select id="email_list" name="email_list" required>
+                
+                <!-- Add more tasks as needed -->
+                {% for email_list in email_lists %}
+                <option value= {{email_list[0]}} >{{ email_list[1] }}</option>
+                {% endfor %}
+
+            </select><br><br>
+
+            <label for="start_datetime">Start date/time</label><br>
+            <input type="datetime-local" id="start_datetime" name="start_datetime"><br><br>
+            
+            <label for="days">Interval (days)</label><br>
+            <input type="number" id="days" name="days"><br><br>
+
+            <input type="submit" value="Create Job">
+        </form>
+    </div>
+</body>
+</html>

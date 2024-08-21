@@ -1,6 +1,7 @@
 # config.py
 API_KEY = 'secret_key'
 REQUIRE_KEY = False
+ADMIN_PASSWORD = "secret_password"
 
 # Flask-Mail
 MAIL_SERVER = 'smtp.example.com'
