@@ -8,16 +8,18 @@ import csv
 from time import sleep
 from yaml import safe_load
 import subprocess
+from functools import wraps
 
-from config import API_KEY, REQUIRE_KEY, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_RECIPIENT, RSCRIPT_PATH, ADMIN_PASSWORD
+from config import SERVICE_API_TOKEN, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_RECIPIENT, RSCRIPT_PATH, ADMIN_PASSWORD
 
 app = Flask(__name__)
 
 ### CONFIG ----------------------
-# Configuration for the API key
-app.config['API_KEY'] = API_KEY
-app.config['REQUIRE_KEY'] = REQUIRE_KEY
+# Configuration for the admin authentication
 app.config['ADMIN_PASSWORD'] = ADMIN_PASSWORD
+
+# external service api token
+app.config['SERVICE_API_TOKEN'] = SERVICE_API_TOKEN
 
 # Flask-mail config
 app.config['MAIL_SERVER'] = MAIL_SERVER
@@ -41,14 +43,43 @@ def authenticate():
         'You must provide valid credentials to access this page.', 401,
         {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
-# Decorator to require authentication
+# Decorator to require authentication (for admin pages)
 def requires_auth(f):
+    @wraps(f)
     def decorated(*args, **kwargs):
         auth = request.authorization
         if not auth or not check_auth(auth.username, auth.password):
             return authenticate()
         return f(*args, **kwargs)
     return decorated
+
+def check_auth_api(token):
+    """Check if the token is valid."""
+    return token == app.config['SERVICE_API_TOKEN']
+
+# Decorator to require authentication (for API)
+def requires_auth_api(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('token')
+        
+        if not auth_header:
+            return jsonify({"message": "Missing token"}), 401
+
+        # The token is usually sent as "Bearer <token>"
+        try:
+            token = auth_header
+        except IndexError:
+            return jsonify({"message": "Invalid token format"}), 401
+
+        # Validate the token
+        if not check_auth_api(token):
+            return jsonify({"message": "Unauthorized"}), 401
+
+        # If the token is valid, proceed with the original function
+        return f(*args, **kwargs)
+    
+    return decorated_function
 
 # Initialize Flask-Mail
 mail = Mail(app)
@@ -62,6 +93,7 @@ def init_db():
     c.execute('''DROP TABLE IF EXISTS users''')
     c.execute('''CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    external_key TEXT,
                     name TEXT, 
                     email TEXT,
                     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -110,12 +142,12 @@ def init_db():
 
     # Insert example users
     example_users = [
-        ('Robert H', 'Robert.H@email.com'),
-        ('Grace S', 'Grace.S@email.com'),
-        ('Alice Johnson', 'alice@example.com')
+        ('42523','Robert H', 'Robert.H@email.com'),
+        ('75437','Grace S', 'Grace.S@email.com'),
+        ('54642','Alice Johnson', 'alice@example.com')
     ]
-    c.executemany('''INSERT INTO users (name, email) 
-                     VALUES (?, ?)''', example_users)
+    c.executemany('''INSERT INTO users (external_key, name, email) 
+                     VALUES (?, ?, ?)''', example_users)
 
     # Insert example email lists
     example_email_lists = [
@@ -160,12 +192,12 @@ def init_db():
 ### DATABASE HELPERS ------------------------------
 # MANAGE USERS
 # Function to insert user data into the database
-def insert_user(name, email):
+def insert_user(external_key, name, email):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''INSERT INTO users (name, email) 
-                 VALUES (?, ?)''', 
-              (name, email))
+    c.execute('''INSERT INTO users (external_key, name, email) 
+                 VALUES (?, ?, ?)''', 
+              (external_key, name, email))
     conn.commit()
     conn.close()
 
@@ -177,28 +209,18 @@ def remove_user(user_id):
     conn.commit()
     conn.close()
 
-# Function to get all users from the database
-def get_all_users():
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT id, name, email, date_created FROM users''')
-    users = c.fetchall()
-    conn.close()
-    return users
-
 # Function to get users based on their email list
 def get_users_by_email_list(email_list_id):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
     # Query to get users subscribed to a particular email list
-    c.execute('''SELECT users.id, users.name, users.email
+    c.execute('''SELECT users.id, users.external_key, users.name, users.email
                  FROM users
                  INNER JOIN user_subscriptions ON users.id = user_subscriptions.user_id
                  WHERE user_subscriptions.email_list_id = ?''', (email_list_id,))
     users = c.fetchall()
     conn.close()
     return users
-
 
 def get_email_lists():
     conn = sqlite3.connect('data/users.db')
@@ -285,86 +307,38 @@ def get_email_feedback(email_id):
 #API - USER MANAGEMENT
 # API endpoint to add users
 @app.route('/api/add_user', methods=['GET','POST'])
+@requires_auth_api
 def add_user():
-    api_key = request.headers.get('API-Key')
-    if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
-        return jsonify({'error': 'Invalid API key'}), 401
-
     data = request.json
+    external_key = data.get('external_key')
     name = data.get('name')
     email = data.get('email')
 
-    if not name or not email:
-        return jsonify({'error': 'Name and email are required'}), 400
+    if not name or not email or not external_key:
+        return jsonify({'error': 'External key, name and email are required'}), 400
 
-    insert_user(name, email)
+    insert_user(external_key, name, email)
     return jsonify({'message': 'User added successfully'}), 201
 
-# API endpoint to remove a user
-@app.route('/api/remove_user/<int:user_id>', methods=['GET','POST','DELETE'])
-def delete_user(user_id):
-    api_key = request.headers.get('API-Key')
-    if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
-        return jsonify({'error': 'Invalid API key'}), 401
-
-    # Check if the user exists
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT * FROM users WHERE id = ?''', (user_id,))
-    user = c.fetchone()
-    conn.close()
-
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
-    remove_user(user_id)
-    return jsonify({'message': 'User removed successfully'}), 200
-
-# API endpoint to retrieve list of user
-@app.route('/api/users', methods=['GET'])
-def get_users():
-    api_key = request.headers.get('API-Key')
-    if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
-        return jsonify({'error': 'Invalid API key'}), 401
-
-    users = get_all_users()
-    user_list = []
-    for user in users:
-        user_dict = {
-            'id': user[0],
-            'name': user[1],
-            'email': user[2],
-            'date_created': user[3]
-        }
-        user_list.append(user_dict)
-    response = {
-        'num_results': len(user_list),
-        'users': user_list
-    }
-    return jsonify(response), 200
-
 # API endpoint to retrieve a user's subscriptions and email history
-@app.route('/api/user/<int:user_id>', methods=['GET'])
-def user_subscriptions(user_id):
-    api_key = request.headers.get('API-Key')
-    if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
-        return jsonify({'error': 'Invalid API key'}), 401
-
+@app.route('/api/user/<external_key>', methods=['GET'])
+@requires_auth_api
+def user_subscriptions(external_key):
     # Check if the user exists
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT * FROM users WHERE id = ?''', (user_id,))
+    c.execute('''SELECT * FROM users WHERE external_key = ?''', (external_key,))
     user = c.fetchone()
     if not user:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
 
     # Get user's subscriptions
-    c.execute('''SELECT email_list_id, date_subscribed FROM user_subscriptions WHERE user_id = ?''', (user_id,))
+    c.execute('''SELECT email_list_id, date_subscribed FROM user_subscriptions WHERE user_id = ?''', (user[0],))
     subscriptions = c.fetchall()
 
     # Get user's email history
-    emails = get_user_emails(user_id)
+    emails = get_user_emails(user[0])
 
     conn.close()
 
@@ -373,9 +347,10 @@ def user_subscriptions(user_id):
     emails_list = [{'email_list_id': hist[0], 'date_sent': hist[1]} for hist in emails]
 
     return jsonify({
-        'id': user_id,
-        'name': user[1],
-        'email': user[2],
+        'id': user[0],
+        'external_key': user[1],
+        'name': user[2],
+        'email': user[3],
         'subscriptions': subscription_list,
         'emails': emails_list
     }), 200
@@ -384,76 +359,45 @@ def user_subscriptions(user_id):
 
 # API - SUBSCRIPTION MANAGEMENT
 # API endpoint to add a subscription for a user
-@app.route('/api/add_subscription/<int:user_id>/<int:email_list_id>', methods=['POST'])
-def add_subscription(user_id, email_list_id):
-    api_key = request.headers.get('API-Key')
-    if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
-        return jsonify({'error': 'Invalid API key'}), 401
-
+@app.route('/api/add_subscription/<external_key>/<int:email_list_id>', methods=['GET','POST'])
+@requires_auth_api
+def add_subscription(external_key, email_list_id):
     # Check if the user exists
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT * FROM users WHERE id = ?''', (user_id,))
+    c.execute('''SELECT * FROM users WHERE external_key = ?''', (external_key,))
     user = c.fetchone()
     if not user:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
 
     # Add subscription
-    insert_subscription(user_id, email_list_id)
+    insert_subscription(user[0], email_list_id)
     conn.close()
-    return jsonify({'message': f'Subscribed {user[1]} to {email_list_id}'}), 201
+    return jsonify({'message': f'Subscription added'}), 201
 
 # API endpoint to remove a subscription for a user
-@app.route('/api/delete_subscription/<int:user_id>/<int:email_list_id>', methods=['DELETE'])
-def delete_subscription(user_id, email_list_id):
-    api_key = request.headers.get('API-Key')
-    if api_key != app.config['API_KEY'] and app.config['REQUIRE_KEY']:
-        return jsonify({'error': 'Invalid API key'}), 401
-
+@app.route('/api/delete_subscription/<external_key>/<int:email_list_id>', methods=['GET','DELETE'])
+@requires_auth_api
+def delete_subscription(external_key, email_list_id):
     # Check if the user exists
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT * FROM users WHERE id = ?''', (user_id,))
+    c.execute('''SELECT * FROM users WHERE external_key = ?''', (external_key,))
     user = c.fetchone()
     if not user:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
 
     # Remove subscription
-    remove_subscription(user_id, email_list_id)
+    remove_subscription(user[0], email_list_id)
     conn.close()
-    return jsonify({'message': f'Unsubscribed {user[1]} from {email_list_id}'}), 200
-
-#PROVIDING FEEDBACK
-# Update API endpoint to add user feedback
-@app.route('/api/add_feedback/<int:email_id>', methods=['POST'])
-def add_feedback(email_id):
-
-    data = request.json
-    user_id = data.get('user_id')
-    rating = data.get('rating')
-    comment = data.get('comment')
-
-    if not user_id or not rating or not comment:
-        return jsonify({'error': 'User ID, rating, and comment are required'}), 400
-
-    # Check if the email history ID exists
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT * FROM emails WHERE id = ?''', (email_id,))
-    emails = c.fetchone()
-    conn.close()
-
-    if not emails:
-        return jsonify({'error': 'Email history not found'}), 404
-
-    insert_feedback(email_id, user_id, rating, comment)
-    return jsonify({'message': 'Feedback added successfully'}), 201
+    return jsonify({'message': f'Subscription removed'}), 200
 
 ### USER INTERFACE ---------------------------
 # Route to reset the database
 @app.route('/reset_database')
+@requires_auth
 def reset_database():
     init_db()  # Call the function to initialize the database and add example users
     return 'Database reset successfully'
@@ -536,8 +480,9 @@ def export_data():
 
     return csv_data
 
-# route to actually export it
+# Route to export the data as a csv
 @app.route('/export_data')
+@requires_auth
 def export_data_page():
     # Fetch data
     data = export_data()
@@ -561,6 +506,7 @@ def send_email(subject,recipients,html):
 
 # Route to trigger sending of test email
 @app.route('/send_test_email', methods=['GET', 'POST'])
+@requires_auth
 def send_test_email():
     if request.method == 'POST':
         send_email("Test email",TEST_RECIPIENT,"This is a test email sent from Flask.")  # Call the function to send the email
@@ -572,6 +518,7 @@ scheduler = BackgroundScheduler()
 scheduler.start()
 
 @app.route('/create-job', methods=['GET'])
+@requires_auth
 def create_job_form():
 
     # Fetch email lists
@@ -584,6 +531,7 @@ def create_job_form():
     return render_template('create_job.html',email_lists=email_lists)
 
 @app.route('/create-job', methods=['POST'])
+@requires_auth
 def create_job():
     """Handle creating a new scheduled job."""
     job_name = request.form['job_name']
@@ -591,7 +539,7 @@ def create_job():
     start_date_str = request.form['start_datetime']
     days = int(request.form['days'])
 
-    
+
     # Parse the start date string into a datetime object
     try:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%dT%H:%M')
@@ -605,9 +553,6 @@ def create_job():
     scheduler.add_job(generate_content_and_send_emails, 'interval',args=args,start_date = start_date,name = job_name,days = days)
 
     return redirect(url_for('index'))
-
-# Schedule the test email sending job
-#scheduler.add_job(send_email, 'interval',args=['Test scheduled email',[TEST_RECIPIENT],"This is a test email sent from Flask sent via a scheduler."], minutes=5) # Send email every 5 minutes
 
 # Function to export users from the database to the csv used in recorder-feedback
 def export_users_csv(file, email_list_id):

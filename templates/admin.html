@@ -12,10 +12,6 @@
         <p><a href="/logout">Logout</a></p>
         
         <h2>Quick links</h2>
-        <p><a href="/api/users">Users</a></p>
-        <p><a href="/api/user/1">User 1</a></p>
-        <p><a href="/api/user/2">User 2</a></p>
-        <p><a href="/api/user/3">User 3</a></p>
         <p><a href="/send_test_email">Send test email</a></p>
         <p><a href="/export_data">Export data</a></p>
         
@@ -82,8 +78,8 @@
             </tbody>
         </table>
 
-        <h2>Scheduled send</h1>
-        <a href="/create-job">Create new job</a>
+        <h2>Scheduled jobs</h1>
+        
         <table border="1">
             <thead>
                 <tr>
@@ -110,6 +106,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        <a href="/create-job">+ Create new job</a>
     </div>
 </body>
 </html>
