@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Send Test Email</title>
+    <title>Script log</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Send Test Email</h1>
-        <form method="post">
-            <button type="submit">Send Test Email</button>
-        </form>
+        <h1>Script Output</h1>
+        <h2>Standard Output:</h2>
+        <pre>{{ stdout }}</pre>
+
+        <h2>Standard Error:</h2>
+        <pre>{{ stderr }}</pre>
     </div>
 </body>
 </html>

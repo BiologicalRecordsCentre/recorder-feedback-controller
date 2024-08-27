@@ -1,16 +1,15 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
 from flask import current_app as app
-from flask_mail import Mail, Message
+from flask_mail import Mail
 from apscheduler.schedulers.background import BackgroundScheduler
 import sqlite3
 from datetime import datetime
-import csv
-from time import sleep
-from yaml import safe_load
-import subprocess
 from functools import wraps
 
-from config import SERVICE_API_TOKEN, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_RECIPIENT, RSCRIPT_PATH, ADMIN_PASSWORD
+from config import SERVICE_API_TOKEN, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD
+from functions_db_helpers import insert_user, remove_user, get_users_by_email_list, get_email_lists, insert_subscription, remove_subscription, get_user_subscriptions, add_email_sent, get_user_emails, insert_feedback, get_email_feedback, get_email_list_by_id
+from functions_dispatch import generate_content_and_dispatch, send_email
+
 
 app = Flask(__name__)
 
@@ -29,7 +28,7 @@ app.config['MAIL_USERNAME'] = MAIL_USERNAME
 app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
 app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
 
-
+### AUTHENTICATION DECORATORS
 # Function to check authentication
 def check_auth(username, password):
     """Check if a username/password combination is valid."""
@@ -80,9 +79,6 @@ def requires_auth_api(f):
         return f(*args, **kwargs)
     
     return decorated_function
-
-# Initialize Flask-Mail
-mail = Mail(app)
 
 # Function to initialize the database
 def init_db():
@@ -139,12 +135,20 @@ def init_db():
                     FOREIGN KEY(email_id) REFERENCES emails(id),
                     FOREIGN KEY(user_id) REFERENCES users(id)
                  )''')
+    
+    conn.commit()
+    conn.close()
+
+
+def init_db_test_data():
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
 
     # Insert example users
     example_users = [
-        ('42523','Robert H', 'Robert.H@email.com'),
-        ('75437','Grace S', 'Grace.S@email.com'),
-        ('54642','Alice Johnson', 'alice@example.com')
+        ('42523','Robert H', TEST_EMAIL),
+        ('75437','Grace S', TEST_EMAIL),
+        ('54642','Alice Johnson', TEST_EMAIL)
     ]
     c.executemany('''INSERT INTO users (external_key, name, email) 
                      VALUES (?, ?, ?)''', example_users)
@@ -189,121 +193,9 @@ def init_db():
     conn.commit()
     conn.close()
 
-### DATABASE HELPERS ------------------------------
-# MANAGE USERS
-# Function to insert user data into the database
-def insert_user(external_key, name, email):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''INSERT INTO users (external_key, name, email) 
-                 VALUES (?, ?, ?)''', 
-              (external_key, name, email))
-    conn.commit()
-    conn.close()
 
-# Function to remove a user from the database
-def remove_user(user_id):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''DELETE FROM users WHERE id = ?''', (user_id,))
-    conn.commit()
-    conn.close()
-
-# Function to get users based on their email list
-def get_users_by_email_list(email_list_id):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    # Query to get users subscribed to a particular email list
-    c.execute('''SELECT users.id, users.external_key, users.name, users.email
-                 FROM users
-                 INNER JOIN user_subscriptions ON users.id = user_subscriptions.user_id
-                 WHERE user_subscriptions.email_list_id = ?''', (email_list_id,))
-    users = c.fetchall()
-    conn.close()
-    return users
-
-def get_email_lists():
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    # Query to get all email lists
-    c.execute('''SELECT * FROM email_lists''')
-    email_lists = c.fetchall()
-    conn.close()
-    return email_lists
-
-#MANAGE SUBSCRIPTIONS
-# Function to add subscription for a user
-def insert_subscription(user_id, email_list_id):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''INSERT INTO user_subscriptions (user_id, email_list_id) 
-                 VALUES (?, ?)''', 
-              (user_id, email_list_id))
-    conn.commit()
-    conn.close()
-
-# Function to remove subscription for a user
-def remove_subscription(user_id, email_list_id):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''DELETE FROM user_subscriptions WHERE user_id = ? AND email_list_id = ?''', 
-              (user_id, email_list_id))
-    conn.commit()
-    conn.close()
-
-# Function to get all subscriptions for a user
-def get_user_subscriptions(user_id):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT id, email_list_id, date_subscribed FROM user_subscriptions WHERE user_id = ?''', (user_id,))
-    subscriptions = c.fetchall()
-    conn.close()
-    return subscriptions
-
-# MANAGE EMAILS
-# Function to add email sending history
-def add_email_sent(user_id, email_list_id):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''INSERT INTO emails (user_id, email_list_id) 
-                 VALUES (?, ?)''', 
-              (user_id, email_list_id))
-    conn.commit()
-    conn.close()
-
-# Function to get email history for a user
-def get_user_emails(user_id):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT email_list_id, date_sent FROM emails WHERE user_id = ?''', (user_id,))
-    history = c.fetchall()
-    conn.close()
-    return history
-
-
-# FEEDBACK
-# Function to insert user feedback into the database
-def insert_feedback(email_id, user_id, rating, comment):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''INSERT INTO email_feedback (email_id, user_id, rating, comment) 
-                 VALUES (?, ?, ?, ?)''', (email_id, user_id, rating, comment))
-    conn.commit()
-    conn.close()
-
-# Function to get feedback for a specific email
-def get_email_feedback(email_id):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT * FROM email_feedback WHERE email_id = ?''', (email_id,))
-    feedback = c.fetchall()
-    conn.close()
-    return feedback
 
 ### APP ROUTES ---------------------------
-
-
-
 #API - USER MANAGEMENT
 # API endpoint to add users
 @app.route('/api/add_user', methods=['GET','POST'])
@@ -495,27 +387,28 @@ def export_data_page():
     return response
 
 
-### SENDING EMAILS FUNCTIONALITY -----------------------
-# Function to send email
-def send_email(subject,recipients,html):
-    with app.app_context():
-        msg = Message(subject=subject, recipients=recipients)
-        msg.html = html
-        mail.send(msg)
-        print("Email sent successfully at", datetime.now())
-
 # Route to trigger sending of test email
 @app.route('/send_test_email', methods=['GET', 'POST'])
 @requires_auth
 def send_test_email():
     if request.method == 'POST':
-        send_email("Test email",TEST_RECIPIENT,"This is a test email sent from Flask.")  # Call the function to send the email
+        send_email(TEST_EMAIL,"Test email","This is a test email sent from Flask.")  # Call the function to send the email
         return redirect(url_for('index'))  # Redirect to homepage or any other page
     return render_template('send_test_email.html')
 
-# Initialize scheduler
-scheduler = BackgroundScheduler()
-scheduler.start()
+
+# Route to trigger manual dispatch of an email list
+@app.route('/manual_dispatch/<int:email_list_id>', methods=['GET', 'POST'])
+@requires_auth
+def manual_dispatch(email_list_id):
+    email_list = get_email_list_by_id(email_list_id)
+    print(email_list)
+    if request.method == 'POST':
+        stdout, stderr = generate_content_and_dispatch(email_list_id)  # Call the function to send generate and dispatch
+        return render_template('script_log.html', stdout=stdout, stderr=stderr)  # Redirect to homepage or any other page
+    return render_template('manual_dispatch.html',email_list=email_list)
+
+
 
 @app.route('/create-job', methods=['GET'])
 @requires_auth
@@ -550,118 +443,23 @@ def create_job():
     #days= request.form['days']
     args = [email_list_id]
 
-    scheduler.add_job(generate_content_and_send_emails, 'interval',args=args,start_date = start_date,name = job_name,days = days)
+    scheduler.add_job(generate_content_and_dispatch, 'interval',args=args,start_date = start_date,name = job_name,days = days)
 
     return redirect(url_for('index'))
 
-# Function to export users from the database to the csv used in recorder-feedback
-def export_users_csv(file, email_list_id):
-    # Query users from your database
-    users = get_users_by_email_list(email_list_id)
-
-    # Define CSV file headers
-    fields = ['user_id', 'name', 'email', 'Date Created']
-
-    # Create a CSV file in memory
-    with open(file, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-
-        # Write headers to the CSV file
-        writer.writerow(fields)
-
-        # Write user data to the CSV file
-        for user in users:
-            writer.writerow(user)
-
-    return users #return the filename
-
-
-# function to trigger the email content generation
-def generate_content_and_send_emails(email_list_id):
-    # STEP1: Export users from flask database
-    # get the name of the email list
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT email_list_name FROM email_lists WHERE id = ?''', (email_list_id,)) # Query to get the name of the email list by its ID
-    result = c.fetchone()
-    conn.close()
-    email_list_name = result[0]
-    print(email_list_name)
-
-    # Get the user file location from the config file
-    f = open('R/'+email_list_name+'/config.yml', 'r')
-    yaml_content = f.read()
-    data = safe_load(yaml_content)
-    
-    # Get the users and export as csv
-    users = export_users_csv('R/'+email_list_name+'/'+data['default']['participant_data_file'],email_list_id)
-
-    # STEP2: Run email generation code
-    # Trigger email generation
-    r_script_file = 'R/'+email_list_name+'/generate_feedback_items.R'
-
-    # Call the R script using subprocess.Popen
-    batch_id = 'test_001'
-    process = subprocess.Popen(RSCRIPT_PATH+" "+r_script_file, shell=True)
-
-    process.wait()
-    # Capture the output and error
-    #output, error = process.communicate()
-
-    # Print the output and error
-    #print("Output:", output.decode())
-    #print("Error:", error.decode())
-
-    #STEP3 get the filepath of the rendered data
-    # Load the user meta data
-    # Define the path to your CSV file
-    csv_file_path = 'R/'+email_list_name+'/renders/'+batch_id+'/meta_table_'+batch_id+'.csv' # Update this with the actual path
-
-    # Initialize an empty list to store tuples of user ID and file path
-    file_paths = []
-
-    # Open the CSV file and read its contents
-    with open(csv_file_path, newline='') as csvfile:
-        reader = csv.reader(csvfile)
-        next(reader)  # Skip the header row if it exists
-        for row in reader:
-            user_id, file_path = row
-            user_id = int(user_id)
-            file_paths.append((user_id,'R/'+email_list_name+'/'+file_path))
-
-    
-    user_data_dict = {user[0]: user[1:] for user in users} # Create a dictionary to map user IDs to their data
-    joined_data = [] # Initialize an empty list to store the joined data
-
-    # Iterate through the file_paths list
-    for user_id, file_path in file_paths:
-        if user_id in user_data_dict:
-            # Combine user data with file path
-            joined_data.append((user_id,) + user_data_dict[user_id] + (file_path,))
-
-    # Print the joined data
-    print(joined_data)
-
-
-    #STEP4 send emails
-    # Loop through users, send email and log email send
-    for user in joined_data:
-        sleep(2)
-        print("Sending email to:")
-        print(user[2])
-        print("Email content:")
-        print(user[3])
-        #get html content
-        with open(user[3], "r") as f:
-            html_content = f.read()
-        send_email(email_list_name,[TEST_RECIPIENT],html_content)
-        add_email_sent(user[0], email_list_id)
-
-    return True
 
 
 ### APP ----------------
+# Initialize scheduler
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+# Initialize Flask-Mail
+mail = Mail(app)
+
 if __name__ == '__main__':
     init_db()  # Initialize the database when the app starts
+    if TEST_MODE:
+        init_db_test_data()
     app.run(debug=True)
     

@@ -3,14 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Send Test Email</title>
+    <title>Manual Dispatch</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Send Test Email</h1>
+        <h1>Manual dispatch</h1>
+
+        <p>You are about to dispatch recorder feedback for a list called</p>
+        <h3>{{ email_list[1] }}</h3>
+
         <form method="post">
-            <button type="submit">Send Test Email</button>
+            <button type="submit">Dispatch</button>
         </form>
     </div>
 </body>

@@ -12,11 +12,11 @@
         <p><a href="/logout">Logout</a></p>
         
         <h2>Quick links</h2>
-        <p><a href="/send_test_email">Send test email</a></p>
-        <p><a href="/export_data">Export data</a></p>
+        <p><a href="/send_test_email">✉ Send test email</a></p>
+        <p><a href="/export_data">↓ Export data</a></p>
         
 
-        <h2>Email Lists</h1>
+        <h2>Recorder Feedback Lists</h1>
         <table border="1">
             <thead>
                 <tr>
@@ -29,6 +29,7 @@
                 <tr>
                     <td>{{ email_list[0] }}</td>
                     <td>{{ email_list[1] }}</td>
+                    <td><a href="/manual_dispatch/{{ email_list[0] }}">✉ Manual dispatch</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -41,7 +42,7 @@
                     <th>User ID</th>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>Email List</th>
+                    <th>List</th>
                 </tr>
             </thead>
             <tbody>
@@ -56,13 +57,14 @@
             </tbody>
         </table>
 
-        <h2>Email History</h1>
+        <h2>Dispatch History</h1>
+        <p>{{ email_history | length }} feedback items sent </p>
         <table border="1">
             <thead>
                 <tr>
                     <th>User ID</th>
                     <th>Name</th>
-                    <th>Email List</th>
+                    <th>List</th>
                     <th>Date Sent</th>
                 </tr>
             </thead>
