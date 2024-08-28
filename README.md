@@ -2,26 +2,25 @@
 
 ## Overview
 
-A flask app for user management and dispatch of personalised feedback for biological recording.
+Biological recorders contribute valuable biodiversity data; and extensive infrastructure exists to support dataflows from recorders submitting records to databases. However, we lack infrastructure dedicated to providing informative feedback to recorders in response to the data they have contributed. By developing this infrastructure, we can create a feedback loop leading to better data and more engaged data providers. This work builds on automated, personalised feedback delivered by email to butterfly recorders through the MyDECIDE programme in 2021 (run as part of the DECIDE project 2020-2021).
 
-App requirements:
+The Recorder Feedback Controller App provides a standalone application that interacts with other recording platforms (such as Indicia platforms like iRecord and iNaturalist). It is developed in Python using the Flask app framework. Its main purpose is for user management and dispatch of personalised feedback for biological recording.
 
- * Define and host a database for holding information on:
-    * Subscribers - email address, identifiers for recording platforms
-    * Email lists - the different email lists
-    * Subscriptions - who has subscribed to what email lists
-    * Email history - logging who has received what emails
-    * Feedback on emails - capturing user feedback on the emails they have recevied
- * Provide API endpoints as the main way of interacting with the database
-    * User creation
-    * Subscribing / unsubscribing
-    * Logging email dispatching
- * Provide limited webpages
-    * One click email unsubscribe (to meet GDPR requirements)
-    * Admin log-in
- * Host email generation R code: https://github.com/BiologicalRecordsCentre/recorder-feedback
- * Send emails on a schedule
- * Export user provided feedback
+App features:
+
+ * Defines and hosts a database for holding information on:
+    * Recorders - personal information, identifiers for recording platforms
+    * Lists - the different types of feedback participants can subscribe to
+    * Subscriptions - who has subscribed to what lists
+    * Email history - logging who has received what feedback
+    * Feedback on emails - capturing user feedback on the engagements they have recevied
+ * Provides authenticated API endpoints as the main way of interacting with the database from an external service
+    * Creating users
+    * Subscribing / unsubscribing from lists
+ * Some limited front-end functionality
+    * Admin panel for user management and creating scheduled jobs for dispatching feedback
+ * Interacts with the R code developed for generating the feedback items https://github.com/BiologicalRecordsCentre/recorder-feedback
+ * Data export for analysis
 
 ## Development start up
 
@@ -55,7 +54,7 @@ Activate the virtualenv (not possible on UKCEH managed machines because of IT po
 Install packages using pip to the user library
 `python -m pip install flask flask_mail apscheduler pyyaml`
 
-### Initial set up
+### Lauch Flask app
 
 Create the config.py by copying from config_example.py and filling in details. Create a folder named `data`. Run the app
 ```
@@ -63,4 +62,16 @@ cp config_example.py config.py
 mkdir data
 python app.py
 ```
-Then navigate to `http://127.0.0.1:5000/`
+Then navigate to `http://127.0.0.1:5000/` taking you to the limited front end. Click on the link to go to the admin panel and enter the username and password you specified in `config.py`.
+
+### Hosting R code
+
+This app calls R code which generates the html feedback items before dispatch. Here I want to make a feedback list called 'weekly-report'. Navigate to the R directory, clone the R code repository then rename the folder to 'weekly-report' (or whatever you wish to call your list).
+
+```
+cd R
+git clone https://github.com/BiologicalRecordsCentre/recorder-feedback
+ren recorder-feedback weekly-report
+```
+
+Follow the set-up instructions located here: https://biologicalrecordscentre.github.io/recorder-feedback/
