@@ -22,6 +22,8 @@ App features:
  * Interacts with the R code developed for generating the feedback items https://github.com/BiologicalRecordsCentre/recorder-feedback
  * Data export for analysis
 
+See the wiki for detailed documentation: https://github.com/simonrolph/recorder-feedback-controller/wiki
+
 ## Development start up
 
 ### Prerequisites: Python, pip and virtualenv
