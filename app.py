@@ -402,7 +402,6 @@ def send_test_email():
 @requires_auth
 def manual_dispatch(email_list_id):
     email_list = get_email_list_by_id(email_list_id)
-    print(email_list)
     if request.method == 'POST':
         stdout, stderr = generate_content_and_dispatch(email_list_id)  # Call the function to send generate and dispatch
         return render_template('script_log.html', stdout=stdout, stderr=stderr)  # Redirect to homepage or any other page

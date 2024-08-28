@@ -91,7 +91,7 @@ def generate_content_and_dispatch(email_list_id):
 
     # Call the R script using subprocess.Popen
     batch_id = datetime.today().strftime('%Y_%m_%d_%H_%M_%S')
-    process = subprocess.Popen(RSCRIPT_PATH+" "+r_script_file, 
+    process = subprocess.Popen(RSCRIPT_PATH+" "+r_script_file+" "+batch_id, 
                                shell=True,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE
@@ -100,11 +100,11 @@ def generate_content_and_dispatch(email_list_id):
     process.wait()
 
     # Capture the output and error
-    stdout, stderr = process.communicate()
+    stdout_r, stderr_r = process.communicate()
 
-    # Print the output and error
-    #print("Output:", output.decode())
-    #print("Error:", error.decode())
+    # end the pipeline and show the R code if the pipeline failed
+    if not "ended pipeline" in stdout_r.decode('utf-8'):
+        return stdout_r.decode('utf-8'), stderr_r.decode('utf-8')
 
     #STEP3 get the filepath of the rendered data
     # Load the user meta data
@@ -151,4 +151,4 @@ def generate_content_and_dispatch(email_list_id):
         dispatch_feedback(user[0],email_list_name,html_content)
         add_email_sent(user[0], email_list_id)
 
-    return stdout.decode('utf-8'), stderr.decode('utf-8')
+    return stdout_r.decode('utf-8'), stderr_r.decode('utf-8')
