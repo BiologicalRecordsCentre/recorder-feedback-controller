@@ -7,8 +7,8 @@ from datetime import datetime
 from functools import wraps
 
 from config import SERVICE_API_TOKEN, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD
-from functions_db_helpers import insert_user, remove_user, get_users_by_email_list, get_email_lists, insert_subscription, remove_subscription, get_user_subscriptions, get_user_emails, insert_feedback, get_email_feedback, get_email_list_by_id
-from functions_dispatch import generate_content_and_dispatch, send_email
+from functions_db_helpers import insert_user, remove_user, get_users_by_email_list, get_email_lists, insert_subscription, remove_subscription, get_user_subscriptions, get_user_emails, insert_feedback, get_email_feedback, get_email_list_by_id, get_list_name
+from functions_dispatch import generate_content_and_dispatch, send_email, dispatch_feedback
 
 
 app = Flask(__name__)
@@ -266,12 +266,16 @@ def add_subscription(external_key, email_list_id):
 
     # Add subscription
     insert_subscription(user[0], email_list_id)
+
+    #send confirmation email
+    dispatch_feedback(user[0],"Subscription confirmation","You have subscribed to list"+ get_list_name(email_list_id))
     conn.close()
+
     return jsonify({'message': f'Subscription added'}), 201
 
 # API endpoint to remove a subscription for a user
 @app.route('/api/delete_subscription/<external_key>/<int:email_list_id>', methods=['GET','DELETE'])
-@requires_auth_api
+#@requires_auth_api
 def delete_subscription(external_key, email_list_id):
     # Check if the user exists
     conn = sqlite3.connect('data/users.db')
@@ -284,16 +288,11 @@ def delete_subscription(external_key, email_list_id):
 
     # Remove subscription
     remove_subscription(user[0], email_list_id)
+
+    #send confirmation message
+    dispatch_feedback(user[0],"Subscription removal confirmation","Your subscription to list '"+ get_list_name(email_list_id)+"' has been removed.")
     conn.close()
     return jsonify({'message': f'Subscription removed'}), 200
-
-### USER INTERFACE ---------------------------
-# Route to reset the database
-@app.route('/reset_database')
-@requires_auth
-def reset_database():
-    init_db()  # Call the function to initialize the database and add example users
-    return 'Database reset successfully'
 
 # Route to display homepage
 @app.route('/')
@@ -323,7 +322,7 @@ def admin():
     email_lists = c.fetchall()
 
     # Fetch users and their subscriptions
-    c.execute('''SELECT users.id, users.name, users.email, email_lists.email_list_name
+    c.execute('''SELECT users.id, users.name, users.email, users.external_key, email_lists.email_list_name
                  FROM users
                  LEFT JOIN user_subscriptions ON users.id = user_subscriptions.user_id
                  LEFT JOIN email_lists ON user_subscriptions.email_list_id = email_lists.id''')

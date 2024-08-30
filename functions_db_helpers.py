@@ -41,6 +41,16 @@ def get_email_lists():
     conn.close()
     return email_lists
 
+
+def get_list_name(email_list_id):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    # Query to get users subscribed to a particular email list
+    c.execute('''SELECT * FROM email_lists WHERE id = ?''', (email_list_id,))
+    list = c.fetchone()
+    conn.close()
+    return list[1]
+
 #MANAGE SUBSCRIPTIONS
 # Function to add subscription for a user
 def insert_subscription(user_id, email_list_id):
