@@ -444,7 +444,19 @@ def create_job():
 
     scheduler.add_job(generate_content_and_dispatch, 'interval',args=args,start_date = start_date,name = job_name,days = days)
 
-    return redirect(url_for('index'))
+    return redirect(url_for('admin'))
+
+# Route to delete a scheduled job
+@app.route('/delete-job/<job_id>', methods=['POST'])
+@requires_auth
+def delete_job(job_id):
+    """Handle deleting a scheduled job."""
+    job = scheduler.get_job(job_id)
+    if job:
+        scheduler.remove_job(job_id)
+        return redirect(url_for('admin'))
+    else:
+        return jsonify({'error': 'Job not found'}), 404
 
 
 

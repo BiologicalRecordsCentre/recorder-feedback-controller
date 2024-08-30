@@ -92,6 +92,7 @@
                     <th>Trigger</th>
                     <th>Max instances</th>
                     <th>Next run</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -104,6 +105,12 @@
                     <td>{{ job.trigger }}</td>
                     <td>{{ job.max_instances }}</td>
                     <td>{{ job.next_run_time }}</td>
+                    <td>
+                        <!-- Form to delete the job -->
+                        <form action="{{ url_for('delete_job', job_id=job.id) }}" method="post" style="display:inline;">
+                            <input type="submit" value="Delete">
+                        </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
