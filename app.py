@@ -9,7 +9,7 @@ from functools import wraps
 from config import SERVICE_API_TOKEN, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD
 from functions_db_helpers import insert_user, remove_user, get_users_by_email_list, get_email_lists, insert_subscription, remove_subscription, get_user_subscriptions, get_user_emails, insert_feedback, get_email_feedback, get_email_list_by_id, get_list_name
 from functions_dispatch import generate_content_and_dispatch, send_email, dispatch_feedback
-
+from functions_test_data import init_db_test_data
 
 app = Flask(__name__)
 
@@ -141,63 +141,15 @@ def init_db():
     conn.close()
 
 
-def init_db_test_data():
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-
-    # Insert example users
-    example_users = [
-        ('42523','Robert H', TEST_EMAIL),
-        ('75437','Grace S', TEST_EMAIL),
-        ('54642','Alice Johnson', TEST_EMAIL)
-    ]
-    c.executemany('''INSERT INTO users (external_key, name, email) 
-                     VALUES (?, ?, ?)''', example_users)
-
-    # Insert example email lists
-    example_email_lists = [
-        (1,'myrecord_weekly'),
-        (2,'decide2')
-    ]
-    c.executemany('''INSERT INTO email_lists (id, email_list_name) VALUES (?, ?)''', example_email_lists)
-
-
-    # Insert example subscriptions
-    example_subscriptions = [
-        (1, 1),  #user_id, email_list_id
-        (1, 2),  
-        (2, 1),  
-        (3, 2),  
-    ]
-    c.executemany('''INSERT INTO user_subscriptions (user_id, email_list_id) VALUES (?, ?)''', example_subscriptions)               
-
-    # Insert example email history
-    example_emails = [
-        (1, 1, "test_batch1"),  #user_id, email_list_id, batch_id
-        (1, 1, "test_batch1"),  
-        (2, 1, "test_batch2"),  
-        (2, 1, "test_batch2"),  
-        (3, 2, "test_batch2"),  
-    ]
-    c.executemany('''INSERT INTO emails (user_id, email_list_id, batch_id) VALUES (?, ?,?)''', example_emails)
-
-    # Insert example feedback
-    example_feedback = [
-        (1, 1, 1, "Too big"),  
-        (2, 1, 2, "Too small"),  
-        (3, 2, 3, "Too wide"),  
-        (4, 2, 4, "Too narrow"),  
-        (5, 3, 5, "Just right"),  
-    ]
-    c.executemany('''INSERT INTO email_feedback (email_id, user_id, rating, comment) VALUES (?, ?, ?, ?)''', example_feedback)
-
-    conn.commit()
-    conn.close()
-
-
 
 ### APP ROUTES ---------------------------
-#API - USER MANAGEMENT
+# Route to display homepage
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+#API --------------------------------------------
 # API endpoint to add users
 @app.route('/api/add_user', methods=['GET','POST'])
 @requires_auth_api
@@ -275,7 +227,7 @@ def add_subscription(external_key, email_list_id):
 
 # API endpoint to remove a subscription for a user
 @app.route('/api/delete_subscription/<external_key>/<int:email_list_id>', methods=['GET','DELETE'])
-#@requires_auth_api
+@requires_auth_api
 def delete_subscription(external_key, email_list_id):
     # Check if the user exists
     conn = sqlite3.connect('data/users.db')
@@ -294,23 +246,21 @@ def delete_subscription(external_key, email_list_id):
     conn.close()
     return jsonify({'message': f'Subscription removed'}), 200
 
-# Route to display homepage
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-# Route to unsubscribe a user from an email list
-@app.route('/unsubscribe/<int:user_id>/<int:email_list_id>', methods=['GET', 'POST'])
-def unsubscribe(user_id, email_list_id):
-    if request.method == 'GET':
-        # You may want to check if the user is subscribed to the email list before rendering the page
-        return render_template('unsubscribe.html', user_id=user_id, email_list_id=email_list_id)
-    elif request.method == 'POST':
-        # Process the unsubscribe action
-        remove_subscription(user_id, email_list_id)
-        return render_template('unsubscribed.html') # Redirect to homepage or any other page after unsubscribing
 
 
+# Webpage so a user can unsubscribe themselves
+#@app.route('/unsubscribe/<int:user_id>/<int:email_list_id>', methods=['GET', 'POST'])
+#def unsubscribe(user_id, email_list_id):
+#    if request.method == 'GET':
+#        # You may want to check if the user is subscribed to the email list before rendering the page
+#        return render_template('unsubscribe.html', user_id=user_id, email_list_id=email_list_id)
+#    elif request.method == 'POST':
+#        # Process the unsubscribe action
+#        remove_subscription(user_id, email_list_id)
+#        return render_template('unsubscribed.html') # Redirect to homepage or any other page after unsubscribing
+
+
+### ADMIN ---------------------------
 # Route for the admin page
 @app.route('/admin')
 @requires_auth
@@ -465,12 +415,13 @@ def delete_job(job_id):
 scheduler = BackgroundScheduler()
 scheduler.start()
 
+
 # Initialize Flask-Mail
 mail = Mail(app)
 
 if __name__ == '__main__':
     init_db()  # Initialize the database when the app starts
-    if TEST_MODE:
-        init_db_test_data()
+    init_db_test_data()
     app.run(debug=True)
-    
+
+
