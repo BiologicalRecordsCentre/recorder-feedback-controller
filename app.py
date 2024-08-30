@@ -7,7 +7,7 @@ from datetime import datetime
 from functools import wraps
 
 from config import SERVICE_API_TOKEN, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD
-from functions_db_helpers import insert_user, remove_user, get_users_by_email_list, get_email_lists, insert_subscription, remove_subscription, get_user_subscriptions, add_email_sent, get_user_emails, insert_feedback, get_email_feedback, get_email_list_by_id
+from functions_db_helpers import insert_user, remove_user, get_users_by_email_list, get_email_lists, insert_subscription, remove_subscription, get_user_subscriptions, get_user_emails, insert_feedback, get_email_feedback, get_email_list_by_id
 from functions_dispatch import generate_content_and_dispatch, send_email
 
 
@@ -119,6 +119,7 @@ def init_db():
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
                     email_list_id INTEGER,
+                    batch_id TEXT,
                     date_sent TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(user_id) REFERENCES users(id),
                     FOREIGN KEY(email_list_id) REFERENCES email_lists(id)
@@ -172,13 +173,13 @@ def init_db_test_data():
 
     # Insert example email history
     example_emails = [
-        (1, 1),  #user_id, email_list_id
-        (1, 1),  
-        (2, 1),  
-        (2, 1),  
-        (3, 2),  
+        (1, 1, "test_batch1"),  #user_id, email_list_id, batch_id
+        (1, 1, "test_batch1"),  
+        (2, 1, "test_batch2"),  
+        (2, 1, "test_batch2"),  
+        (3, 2, "test_batch2"),  
     ]
-    c.executemany('''INSERT INTO emails (user_id, email_list_id) VALUES (?, ?)''', example_emails)
+    c.executemany('''INSERT INTO emails (user_id, email_list_id, batch_id) VALUES (?, ?,?)''', example_emails)
 
     # Insert example feedback
     example_feedback = [
@@ -236,7 +237,7 @@ def user_subscriptions(external_key):
 
     # Prepare subscription and email history data
     subscription_list = [{'email_list_id': sub[0],'date_subscribed': sub[1]} for sub in subscriptions]
-    emails_list = [{'email_list_id': hist[0], 'date_sent': hist[1]} for hist in emails]
+    emails_list = [{'email_list_id': hist[0], 'date_sent': hist[1], 'batch_id':hist[2]} for hist in emails]
 
     return jsonify({
         'id': user[0],
@@ -329,7 +330,7 @@ def admin():
     users_subscriptions = c.fetchall()
 
     # Fetch email history
-    c.execute('''SELECT users.id, users.name, email_lists.email_list_name, emails.date_sent
+    c.execute('''SELECT users.id, users.name, email_lists.email_list_name, emails.date_sent, emails.batch_id
                  FROM users
                  LEFT JOIN emails ON users.id = emails.user_id
                  LEFT JOIN email_lists ON emails.email_list_id = email_lists.id''')
@@ -356,7 +357,7 @@ def export_data():
     c = conn.cursor()
 
     # Query emails table joined with email_feedback table
-    c.execute('''SELECT e.email_list_id, e.user_id, e.id AS email_id, e.date_sent,
+    c.execute('''SELECT e.email_list_id, e.user_id, e.id AS email_id, e.date_sent, e.batch_id
                         f.id AS feedback_id, f.rating, f.comment
                  FROM emails e
                  LEFT JOIN email_feedback f ON e.id = f.email_id AND e.user_id = f.user_id''')
@@ -366,7 +367,7 @@ def export_data():
 
     # Format data as CSV
     csv_data = [
-        ['email_list_id', 'user_id', 'email_id', 'date_sent', 'feedback_id', 'rating', 'comment'],
+        ['email_list_id', 'user_id', 'email_id', 'date_sent', 'batch_id', 'feedback_id', 'rating', 'comment'],
         *data
     ]
 

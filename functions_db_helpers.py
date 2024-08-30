@@ -72,12 +72,12 @@ def get_user_subscriptions(user_id):
 
 # MANAGE EMAILS
 # Function to add email sending history
-def add_email_sent(user_id, email_list_id):
+def add_email_sent(user_id, email_list_id, batch_id):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''INSERT INTO emails (user_id, email_list_id) 
-                 VALUES (?, ?)''', 
-              (user_id, email_list_id))
+    c.execute('''INSERT INTO emails (user_id, email_list_id, batch_id) 
+                 VALUES (?, ?, ?)''', 
+              (user_id, email_list_id, batch_id))
     conn.commit()
     conn.close()
 
@@ -85,7 +85,7 @@ def add_email_sent(user_id, email_list_id):
 def get_user_emails(user_id):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT email_list_id, date_sent FROM emails WHERE user_id = ?''', (user_id,))
+    c.execute('''SELECT email_list_id, date_sent, batch_id FROM emails WHERE user_id = ?''', (user_id,))
     history = c.fetchall()
     conn.close()
     return history

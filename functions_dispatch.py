@@ -149,6 +149,6 @@ def generate_content_and_dispatch(email_list_id):
         with open(user[4], "r") as f:
             html_content = f.read()
         dispatch_feedback(user[0],email_list_name,html_content)
-        add_email_sent(user[0], email_list_id)
+        add_email_sent(user[0], email_list_id, batch_id)
 
     return stdout_r.decode('utf-8'), stderr_r.decode('utf-8')
