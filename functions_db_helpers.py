@@ -11,6 +11,29 @@ def insert_user(external_key, name, email):
     conn.commit()
     conn.close()
 
+#get user by external key
+def get_user_by_external_key(external_key):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''SELECT id, external_key, name, email 
+                 FROM users WHERE external_key = ?''', (external_key,))
+    user = c.fetchone()
+    conn.close()
+
+    if user:
+        return user
+    return None
+
+def update_user_by_id(user_id, external_key, name, email):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''UPDATE users 
+                 SET external_key = ?, name = ?, email = ? 
+                 WHERE id = ?''', 
+              (external_key, name, email, user_id))
+    conn.commit()
+    conn.close()
+
 # Function to remove a user from the database
 def remove_user(user_id):
     conn = sqlite3.connect('data/users.db')
@@ -75,7 +98,7 @@ def remove_subscription(user_id, email_list_id):
 def get_user_subscriptions(user_id):
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT id, email_list_id, date_subscribed FROM user_subscriptions WHERE user_id = ?''', (user_id,))
+    c.execute('''SELECT * FROM user_subscriptions WHERE user_id = ?''', (user_id,))
     subscriptions = c.fetchall()
     conn.close()
     return subscriptions

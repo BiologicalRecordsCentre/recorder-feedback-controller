@@ -3,6 +3,7 @@ API_KEY = 'secret_key'
 ADMIN_PASSWORD = "secret_password"
 
 # Service
+AUTHENTICATE_API = "True"
 SERVICE_API_TOKEN = "complicated_token"
 
 # Dispatch method

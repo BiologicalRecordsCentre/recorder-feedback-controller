@@ -6,8 +6,8 @@ import sqlite3
 from datetime import datetime
 from functools import wraps
 
-from config import SERVICE_API_TOKEN, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD
-from functions_db_helpers import insert_user, remove_user, get_users_by_email_list, get_email_lists, insert_subscription, remove_subscription, get_user_subscriptions, get_user_emails, insert_feedback, get_email_feedback, get_email_list_by_id, get_list_name
+from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD
+from functions_db_helpers import insert_user, get_user_by_external_key, update_user_by_id, remove_user, get_users_by_email_list, get_email_lists, insert_subscription, remove_subscription, get_user_subscriptions, get_user_emails, insert_feedback, get_email_feedback, get_email_list_by_id, get_list_name
 from functions_dispatch import generate_content_and_dispatch, send_email, dispatch_feedback
 from functions_test_data import init_db_test_data
 
@@ -18,6 +18,7 @@ app = Flask(__name__)
 app.config['ADMIN_PASSWORD'] = ADMIN_PASSWORD
 
 # external service api token
+app.config['AUTHENTICATE_API'] = AUTHENTICATE_API
 app.config['SERVICE_API_TOKEN'] = SERVICE_API_TOKEN
 
 # Flask-mail config
@@ -60,6 +61,10 @@ def check_auth_api(token):
 def requires_auth_api(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # If in test mode, proceed with the original function
+        if app.config['AUTHENTICATE_API']:
+            return f(*args, **kwargs)
+    
         auth_header = request.headers.get('token')
         
         if not auth_header:
@@ -151,100 +156,158 @@ def index():
 
 #API --------------------------------------------
 # API endpoint to add users
-@app.route('/api/add_user', methods=['GET','POST'])
+@app.route('/api/users', methods=['POST'])
 @requires_auth_api
-def add_user():
+def api_create_user():
     data = request.json
     external_key = data.get('external_key')
     name = data.get('name')
     email = data.get('email')
 
-    if not name or not email or not external_key:
-        return jsonify({'error': 'External key, name and email are required'}), 400
+    if not external_key or not name or not email:
+        return jsonify({'error': 'External key, name, and email are required'}), 400
 
     insert_user(external_key, name, email)
     return jsonify({'message': 'User added successfully'}), 201
 
-# API endpoint to retrieve a user's subscriptions and email history
-@app.route('/api/user/<external_key>', methods=['GET'])
+# API endpoint to get user by external_key
+@app.route('/api/users/<external_key>', methods=['GET'])
 @requires_auth_api
-def user_subscriptions(external_key):
-    # Check if the user exists
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT * FROM users WHERE external_key = ?''', (external_key,))
-    user = c.fetchone()
+def api_get_user(external_key):
+    user = get_user_by_external_key(external_key)
+    print(user)
     if not user:
-        conn.close()
         return jsonify({'error': 'User not found'}), 404
-
-    # Get user's subscriptions
-    c.execute('''SELECT email_list_id, date_subscribed FROM user_subscriptions WHERE user_id = ?''', (user[0],))
-    subscriptions = c.fetchall()
-
-    # Get user's email history
-    emails = get_user_emails(user[0])
-
-    conn.close()
-
-    # Prepare subscription and email history data
-    subscription_list = [{'email_list_id': sub[0],'date_subscribed': sub[1]} for sub in subscriptions]
-    emails_list = [{'email_list_id': hist[0], 'date_sent': hist[1], 'batch_id':hist[2]} for hist in emails]
-
-    return jsonify({
+    
+    # Assuming user is returned as a tuple with (id, external_key, name, email)
+    user_data = {
         'id': user[0],
         'external_key': user[1],
         'name': user[2],
-        'email': user[3],
-        'subscriptions': subscription_list,
-        'emails': emails_list
+        'email': user[3]
+    }
+    
+    return jsonify(user_data), 200
+
+# API endpoint to update users
+@app.route('/api/users/<external_key>', methods=['PUT'])
+@requires_auth_api
+def api_update_user(external_key):
+    data = request.json
+    external_key = data.get('external_key')
+    name = data.get('name')
+    email = data.get('email')
+
+    if not external_key or not name or not email:
+        return jsonify({'error': 'External key, name, and email are required'}), 400
+
+    user = get_user_by_external_key(external_key)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+
+    update_user_by_id(user[0], external_key, name, email)
+    return jsonify({'message': 'User updated successfully'}), 200
+
+# Retrieve a user's subscriptions
+@app.route('/api/users/<external_key>/subscriptions', methods=['GET'])
+@requires_auth_api
+def api_get_user_subscriptions(external_key):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''SELECT * FROM users WHERE external_key = ?''', (external_key,))
+    user = c.fetchone()
+    
+    if not user:
+        conn.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    #get the user id
+    user_id = user[0]
+
+    #ge the IDs for all the lists the user is subscribed to
+    subscriptions = get_user_subscriptions(user_id)
+    subscription_ids = []
+    for subscription in subscriptions:
+        subscription_ids.append(
+            subscription[2]
+        )
+
+    # Create a response list showing all lists and subscription status
+    feedback_lists = get_email_lists()
+    subscription_status = []
+    for feedback_lists in feedback_lists:
+        is_subscribed = feedback_lists[0] in subscription_ids
+        subscription_status.append({
+            'list_id': feedback_lists[0],
+            'list_name': feedback_lists[1],
+            'subscribed': is_subscribed
+        })
+
+    conn.close()
+
+    return jsonify({
+        'id': user_id,
+        'external_key': user[1],
+        'name': user[2],
+        'subscriptions': subscription_status,
     }), 200
 
-
-
-# API - SUBSCRIPTION MANAGEMENT
-# API endpoint to add a subscription for a user
-@app.route('/api/add_subscription/<external_key>/<int:email_list_id>', methods=['GET','POST'])
+# Add a subscription for a user
+@app.route('/api/users/<external_key>/subscriptions', methods=['POST'])
 @requires_auth_api
-def add_subscription(external_key, email_list_id):
-    # Check if the user exists
+def api_add_user_subscription(external_key):
+    data = request.json
+    email_list_id = data.get('email_list_id')
+
+    if not email_list_id:
+        return jsonify({'error': 'Email list ID is required'}), 400
+
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT * FROM users WHERE external_key = ?''', (external_key,))
+    c.execute('''SELECT id FROM users WHERE external_key = ?''', (external_key,))
     user = c.fetchone()
+    
     if not user:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
 
-    # Add subscription
-    insert_subscription(user[0], email_list_id)
-
-    #send confirmation email
-    dispatch_feedback(user[0],"Subscription confirmation","You have subscribed to list"+ get_list_name(email_list_id))
+    user_id = user[0]
+    insert_subscription(user_id, email_list_id)
+    
+    list_name = get_list_name(email_list_id)
+    # Example feedback sending logic (assuming dispatch_feedback is defined elsewhere)
+    dispatch_feedback(user_id, "Subscription confirmation", f"You have subscribed to the list: {list_name}")
+    
     conn.close()
+    
+    return jsonify({'message': 'Subscription added successfully'}), 201
 
-    return jsonify({'message': f'Subscription added'}), 201
-
-# API endpoint to remove a subscription for a user
-@app.route('/api/delete_subscription/<external_key>/<int:email_list_id>', methods=['GET','DELETE'])
+# Remove a subscription for a user
+@app.route('/api/users/<external_key>/subscriptions', methods=['DELETE'])
 @requires_auth_api
-def delete_subscription(external_key, email_list_id):
-    # Check if the user exists
+def api_remove_user_subscription(external_key, email_list_id):
+    data = request.json
+    email_list_id = data.get('email_list_id')
+
     conn = sqlite3.connect('data/users.db')
     c = conn.cursor()
-    c.execute('''SELECT * FROM users WHERE external_key = ?''', (external_key,))
+    c.execute('''SELECT id FROM users WHERE external_key = ?''', (external_key,))
     user = c.fetchone()
+    
     if not user:
         conn.close()
         return jsonify({'error': 'User not found'}), 404
 
-    # Remove subscription
-    remove_subscription(user[0], email_list_id)
-
-    #send confirmation message
-    dispatch_feedback(user[0],"Subscription removal confirmation","Your subscription to list '"+ get_list_name(email_list_id)+"' has been removed.")
+    user_id = user[0]
+    remove_subscription(user_id, email_list_id)
+    
+    list_name = get_list_name(email_list_id)
+    # Example feedback sending logic (assuming dispatch_feedback is defined elsewhere)
+    dispatch_feedback(user_id, "Subscription removal confirmation", f"Your subscription to list '{list_name}' has been removed.")
+    
     conn.close()
-    return jsonify({'message': f'Subscription removed'}), 200
+    
+    return jsonify({'message': 'Subscription removed successfully'}), 200
 
 
 
