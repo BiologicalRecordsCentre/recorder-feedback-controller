@@ -8,6 +8,7 @@ SERVICE_API_TOKEN = "complicated_token"
 
 # Dispatch method
 DISPATCH_METHOD = 'email' # 'email or 'indicia_notifications'
+USE_SCHEDULER = True # Do youwant to use the scheduler? 
 
 # if DISPATCH_METHOD = email then set these
 # Flask-Mail

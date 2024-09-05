@@ -6,7 +6,7 @@ import sqlite3
 from datetime import datetime
 from functools import wraps
 
-from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD
+from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD, USE_SCHEDULER
 from functions_db_helpers import insert_user, get_user_by_external_key, update_user_by_id, remove_user, get_users_by_email_list, get_email_lists, insert_subscription, remove_subscription, get_user_subscriptions, get_user_emails, insert_feedback, get_email_feedback, get_email_list_by_id, get_list_name
 from functions_dispatch import generate_content_and_dispatch, send_email, dispatch_feedback
 from functions_test_data import init_db_test_data
@@ -28,6 +28,8 @@ app.config['MAIL_USE_TLS'] = MAIL_USE_TLS
 app.config['MAIL_USERNAME'] = MAIL_USERNAME
 app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
 app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
+
+app.config['USE_SCHEDULER'] = USE_SCHEDULER
 
 ### AUTHENTICATION DECORATORS
 # Function to check authentication
@@ -350,8 +352,11 @@ def admin():
     email_history = c.fetchall()
 
     conn.close()
-
-    jobs = scheduler.get_jobs()
+    
+    if app.config['USE_SCHEDULER']:
+        jobs = scheduler.get_jobs()
+    else: 
+        jobs = []
 
     return render_template('admin.html', email_lists=email_lists, users_subscriptions=users_subscriptions, email_history=email_history, jobs=jobs)
 
@@ -476,8 +481,9 @@ def delete_job(job_id):
 
 ### APP ----------------
 # Initialize scheduler
-scheduler = BackgroundScheduler()
-scheduler.start()
+if app.config['USE_SCHEDULER']:
+    scheduler = BackgroundScheduler()
+    scheduler.start()
 
 
 # Initialize Flask-Mail
