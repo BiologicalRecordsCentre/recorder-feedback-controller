@@ -64,20 +64,22 @@ def requires_auth_api(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         # If in test mode, proceed with the original function
-        print(app.config['AUTHENTICATE_API'])
-        if app.config['AUTHENTICATE_API'] is False:
+        if app.config['AUTHENTICATE_API']:
             return f(*args, **kwargs)
-    
-        auth_header = request.headers.get('token')
-        
+
+        # Get the Authorization header
+        auth_header = request.headers.get('Authorization')
+
+        # Check if Authorization header is provided
         if not auth_header:
             return jsonify({"message": "Missing token"}), 401
 
-        # The token is usually sent as "Bearer <token>"
-        try:
-            token = auth_header
-        except IndexError:
+        # Extract the token from the Authorization header
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0] != 'Bearer':
             return jsonify({"message": "Invalid token format"}), 401
+
+        token = parts[1]
 
         # Validate the token
         if not check_auth_api(token):
@@ -85,7 +87,7 @@ def requires_auth_api(f):
 
         # If the token is valid, proceed with the original function
         return f(*args, **kwargs)
-    
+
     return decorated_function
 
 # Function to initialize the database
