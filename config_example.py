@@ -18,7 +18,7 @@ MAIL_USERNAME='USERNAME'
 MAIL_PASSWORD='PASSWORD'
 MAIL_DEFAULT_SENDER='noreply@example.com'
 TEST_MODE = True
-TEST_RECIPIENT='youemail@example.com'
+TEST_EMAIL='youemail@example.com'
 
 # if DISPATCH_METHOD = 'indicia_notifications'
 INDICIA_USER = "user"
