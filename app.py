@@ -64,7 +64,7 @@ def requires_auth_api(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         # If in test mode, proceed with the original function
-        if app.config['AUTHENTICATE_API']:
+        if not app.config['AUTHENTICATE_API']:
             return f(*args, **kwargs)
 
         # Get the Authorization header
