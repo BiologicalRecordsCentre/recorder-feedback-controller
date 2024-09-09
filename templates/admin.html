@@ -22,6 +22,7 @@
                 <tr>
                     <th>ID</th>
                     <th>Name</th>
+                    <th>Description</th>
                 </tr>
             </thead>
             <tbody>
@@ -29,6 +30,7 @@
                 <tr>
                     <td>{{ email_list[0] }}</td>
                     <td>{{ email_list[1] }}</td>
+                    <td>{{ email_list[2] }}</td>
                     <td><a href="/manual_dispatch/{{ email_list[0] }}">✉ Manual dispatch</a></td>
                 </tr>
                 {% endfor %}

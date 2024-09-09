@@ -16,10 +16,10 @@ def init_db_test_data():
 
     # Insert example email lists
     example_email_lists = [
-        (1,'myrecord_weekly'),
-        (2,'decide2')
+        (1,'myrecord_weekly', "Every week you get a nice summary of what you've recorded, how nice!"),
+        (2,'decide2',"Like DECIDE, but better!")
     ]
-    c.executemany('''INSERT INTO email_lists (id, email_list_name) VALUES (?, ?)''', example_email_lists)
+    c.executemany('''INSERT INTO email_lists (id, email_list_name,description) VALUES (?, ?, ?)''', example_email_lists)
 
 
     # Insert example subscriptions

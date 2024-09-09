@@ -109,7 +109,8 @@ def init_db():
     c.execute('''DROP TABLE IF EXISTS email_lists''')  # Drop the existing table if it exists
     c.execute('''CREATE TABLE IF NOT EXISTS email_lists (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                    email_list_name TEXT
+                    email_list_name TEXT,
+                    description TEXT
                  )''')
 
     # subscriptions to email lists
@@ -245,6 +246,7 @@ def api_get_user_subscriptions(external_key):
         subscription_status.append({
             'list_id': feedback_lists[0],
             'list_name': feedback_lists[1],
+            'list_description': feedback_lists[2],
             'subscribed': is_subscribed
         })
 
@@ -325,8 +327,9 @@ def api_get_feedback_lists():
     feedback_list_data = []
     for feedback_list in feedback_lists:
         feedback_list_data.append({
-            'list_id': feedback_list[0],
-            'list_name': feedback_list[1]
+            'id': feedback_list[0],
+            'name': feedback_list[1],
+            'description': feedback_list[2],
         })
     
     # Return the feedback lists in JSON format
