@@ -314,7 +314,23 @@ def api_remove_user_subscription(external_key, email_list_id):
     
     return jsonify({'message': 'Subscription removed successfully'}), 200
 
-
+# API endpoint to get all feedback lists
+@app.route('/api/lists', methods=['GET'])
+@requires_auth_api
+def api_get_feedback_lists():
+    # Retrieve all feedback lists from the database
+    feedback_lists = get_email_lists() 
+    
+    # Prepare the response data
+    feedback_list_data = []
+    for feedback_list in feedback_lists:
+        feedback_list_data.append({
+            'list_id': feedback_list[0],
+            'list_name': feedback_list[1]
+        })
+    
+    # Return the feedback lists in JSON format
+    return jsonify({'lists': feedback_list_data}), 200
 
 # Webpage so a user can unsubscribe themselves
 #@app.route('/unsubscribe/<int:user_id>/<int:email_list_id>', methods=['GET', 'POST'])
