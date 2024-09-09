@@ -427,6 +427,14 @@ def export_data_page():
     return response
 
 
+# Route to export the data as a csv
+@app.route('/reset_data')
+@requires_auth
+def reset_data():
+    init_db()
+    init_db_test_data()
+    return redirect(url_for('admin'))
+
 # Route to trigger sending of test email
 @app.route('/send_test_email', methods=['GET', 'POST'])
 @requires_auth
