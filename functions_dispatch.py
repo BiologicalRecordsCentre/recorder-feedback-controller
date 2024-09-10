@@ -7,7 +7,7 @@ from flask_mail import Message
 import csv
 
 from config import RSCRIPT_PATH, INDICIA_USER, INDICIA_SECRET
-from functions_db_helpers import get_users_by_email_list, add_email_sent
+from functions_db_helpers import get_users_by_list, add_item_sent, get_list_name
 
 ### SENDING EMAILS FUNCTIONALITY -----------------------
 # Dispatch feedback
@@ -44,12 +44,12 @@ def send_indicia_notification(recipient_indicia_id,subject,html):
     print("This is where code will go about using indicia api to POST notifications")
 
 # Function to export users from the database to the csv used in recorder-feedback
-def export_users_csv(file, email_list_id):
+def export_users_csv(file, list_id):
     # Query users from your database
-    users = get_users_by_email_list(email_list_id)
+    users = get_users_by_list(list_id)
 
     # Define CSV file headers
-    fields = ['user_id', 'name', 'email', 'Date Created']
+    fields = ['user_id', 'name', 'email', 'date_created']
 
     # Create a CSV file in memory
     with open(file, 'w', newline='') as csvfile:
@@ -65,29 +65,23 @@ def export_users_csv(file, email_list_id):
     return users #return the filename
 
 
-# function to trigger the email content generation
-def generate_content_and_dispatch(email_list_id):
+# function to trigger the item content generation
+def generate_content_and_dispatch(list_id):
     # STEP1: Export users from flask database
-    # get the name of the email list
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT email_list_name FROM email_lists WHERE id = ?''', (email_list_id,)) # Query to get the name of the email list by its ID
-    result = c.fetchone()
-    conn.close()
-    email_list_name = result[0]
-    print(email_list_name)
+    # get the name of the list
+    list_name = get_list_name(list_id)
 
     # Get the user file location from the config file
-    f = open('R/'+email_list_name+'/config.yml', 'r')
+    f = open('R/'+list_name+'/config.yml', 'r')
     yaml_content = f.read()
     data = safe_load(yaml_content)
     
     # Get the users and export as csv
-    users = export_users_csv('R/'+email_list_name+'/'+data['default']['participant_data_file'],email_list_id)
+    users = export_users_csv('R/'+list_name+'/'+data['default']['participant_data_file'],list_id)
 
-    # STEP2: Run email generation code
-    # Trigger email generation
-    r_script_file = 'R/'+email_list_name+'/generate_feedback_items.R'
+    # STEP2: Run item generation code
+    # Trigger item generation
+    r_script_file = 'R/'+list_name+'/generate_feedback_items.R'
 
     # Call the R script using subprocess.Popen
     batch_id = datetime.today().strftime('%Y_%m_%d_%H_%M_%S')
@@ -109,7 +103,7 @@ def generate_content_and_dispatch(email_list_id):
     #STEP3 get the filepath of the rendered data
     # Load the user meta data
     # Define the path to your CSV file
-    csv_file_path = 'R/'+email_list_name+'/renders/'+batch_id+'/meta_table_'+batch_id+'.csv' # Update this with the actual path
+    csv_file_path = 'R/'+list_name+'/renders/'+batch_id+'/meta_table_'+batch_id+'.csv' # Update this with the actual path
 
     # Initialize an empty list to store tuples of user ID and file path
     file_paths = []
@@ -121,7 +115,7 @@ def generate_content_and_dispatch(email_list_id):
         for row in reader:
             user_id, file_path = row
             user_id = int(user_id)
-            file_paths.append((user_id,'R/'+email_list_name+'/'+file_path))
+            file_paths.append((user_id,'R/'+list_name+'/'+file_path))
 
     
     user_data_dict = {user[0]: user[1:] for user in users} # Create a dictionary to map user IDs to their data
@@ -137,18 +131,18 @@ def generate_content_and_dispatch(email_list_id):
     print(joined_data)
 
 
-    #STEP4 send emails
-    # Loop through users, send email and log email send
+    #STEP4 send items
+    # Loop through users, send item and log item send
     for user in joined_data:
         sleep(2)
-        print("Sending email to:")
+        print("Sending item to:")
         print(user[3])
         print("Email content:")
         print(user[4])
         #get html content
         with open(user[4], "r") as f:
             html_content = f.read()
-        dispatch_feedback(user[0],email_list_name,html_content)
-        add_email_sent(user[0], email_list_id, batch_id)
+        dispatch_feedback(user[0],list_name,html_content)
+        add_item_sent(user[0], list_id, batch_id)
 
     return stdout_r.decode('utf-8'), stderr_r.decode('utf-8')

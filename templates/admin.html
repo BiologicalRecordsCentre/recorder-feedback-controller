@@ -26,7 +26,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for email_list in email_lists %}
+                {% for email_list in lists %}
                 <tr>
                     <td>{{ email_list[0] }}</td>
                     <td>{{ email_list[1] }}</td>
@@ -49,7 +49,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for user_subscription in users_subscriptions %}
+                {% for user_subscription in subscriptions %}
                 <tr>
                     <td>{{ user_subscription[0] }}</td>
                     <td>{{ user_subscription[1] }}</td>
@@ -74,7 +74,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for history in email_history %}
+                {% for history in items %}
                 <tr>
                     <td>{{ history[0] }}</td>
                     <td>{{ history[1] }}</td>

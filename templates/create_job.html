@@ -17,7 +17,7 @@
             <select id="email_list" name="email_list" required>
                 
                 <!-- Add more tasks as needed -->
-                {% for email_list in email_lists %}
+                {% for email_list in lists %}
                 <option value= {{email_list[0]}} >{{ email_list[1] }}</option>
                 {% endfor %}
 
