@@ -7,7 +7,7 @@ from datetime import datetime
 from functools import wraps
 
 from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD, USE_SCHEDULER
-from functions_db_helpers import insert_user, get_user_by_external_key, update_user_by_id, remove_user, get_users_by_list, get_lists, insert_subscription, remove_subscription, get_subscriptions, get_user_items, get_list_by_id, get_list_name
+from functions_db_helpers import insert_user, get_user_by_external_key, update_user_by_id, remove_user, get_users_by_list, get_lists, insert_subscription, remove_subscription, get_subscriptions, get_user_items, get_list_by_id, get_list_name, check_subscription
 from functions_dispatch import generate_content_and_dispatch, send_email, dispatch_feedback
 from functions_test_data import init_db_test_data
 
@@ -198,10 +198,13 @@ def api_update_user(external_key):
 
     if not external_key or not name or not email:
         return jsonify({'error': 'External key, name, and email are required'}), 400
-
+    
     user = get_user_by_external_key(external_key)
     if not user:
         return jsonify({'error': 'User not found'}), 404
+    
+    if user[1] == external_key:
+        return jsonify({'error': 'User already exists with this external_key'}), 400
 
     update_user_by_id(user[0], external_key, name, email)
     return jsonify({'message': 'User updated successfully'}), 200
@@ -210,13 +213,9 @@ def api_update_user(external_key):
 @app.route('/api/users/<external_key>/subscriptions', methods=['GET'])
 @requires_auth_api
 def api_get_subscriptions(external_key):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT * FROM users WHERE external_key = ?''', (external_key,))
-    user = c.fetchone()
+    user = get_user_by_external_key(external_key)
     
     if not user:
-        conn.close()
         return jsonify({'error': 'User not found'}), 404
 
     #get the user id
@@ -242,8 +241,6 @@ def api_get_subscriptions(external_key):
             'subscribed': is_subscribed
         })
 
-    conn.close()
-
     return jsonify({
         'id': user_id,
         'external_key': user[1],
@@ -261,19 +258,19 @@ def api_add_user_subscription(external_key):
     if not list_id:
         return jsonify({'error': 'Email list ID is required'}), 400
 
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT id FROM users WHERE external_key = ?''', (external_key,))
-    user = c.fetchone()
+    user = get_user_by_external_key(external_key)
     
     if not user:
-        conn.close()
         return jsonify({'error': 'User not found'}), 404
-
-    user_id = user[0]
-    insert_subscription(user_id, list_id)
     
-    conn.close()
+    user_id = user[0]
+    
+    subscription = check_subscription(user_id,list_id)
+
+    if subscription:
+        return jsonify({'error': 'Subscription already exists'}), 400
+
+    insert_subscription(user_id, list_id)
     
     return jsonify({'message': 'Subscription added successfully'}), 201
 
@@ -281,19 +278,13 @@ def api_add_user_subscription(external_key):
 @app.route('/api/users/<external_key>/subscriptions/<list_id>', methods=['DELETE'])
 @requires_auth_api
 def api_remove_user_subscription(external_key, list_id):
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT id FROM users WHERE external_key = ?''', (external_key,))
-    user = c.fetchone()
+    user = get_user_by_external_key(external_key)
     
     if not user:
-        conn.close()
         return jsonify({'error': 'User not found'}), 404
 
     user_id = user[0]
     remove_subscription(user_id, list_id)
-    
-    conn.close()
     
     return jsonify({'message': 'Subscription removed successfully'}), 200
 

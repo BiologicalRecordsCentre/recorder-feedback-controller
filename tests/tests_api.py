@@ -95,8 +95,11 @@ def run_tests():
     # Test: Add User
     if test_add_user(external_key, name, email):
         
+        #meant to fail
+        test_add_user(external_key, name, email)
+
         # Test: Get User
-        user_data = test_get_user(external_key)
+        test_get_user(external_key)
 
         # Test: Update User
         test_update_user(external_key, updated_name, updated_email)
@@ -105,6 +108,9 @@ def run_tests():
         test_get_user_subscriptions(external_key)
 
         # Test: Add Subscription
+        test_add_subscription(external_key, list_id)
+
+        #meant to fail
         test_add_subscription(external_key, list_id)
 
         # Test: Get User Subscriptions after adding one

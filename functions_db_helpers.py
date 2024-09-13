@@ -111,6 +111,16 @@ def get_subscriptions(user_id):
     conn.close()
     return subscriptions
 
+def check_subscription(user_id, list_id):
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+    c.execute('''SELECT * FROM subscriptions WHERE user_id = ? AND list_id = ?''', (user_id,list_id,))
+    subscription = c.fetchone()
+
+    if subscription:
+        return subscription
+    return None
+
 # MANAGE EMAILS
 # Function to add item dispatch history
 def add_item_sent(user_id, list_id, batch_id):
