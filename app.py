@@ -158,6 +158,10 @@ def api_create_user():
     name = data.get('name')
     email = data.get('email')
 
+    user = get_user_by_external_key(external_key)
+    if user:
+        return jsonify({'error': 'User already exists with this external_key'}), 400
+
     if not external_key or not name or not email:
         return jsonify({'error': 'External key, name, and email are required'}), 400
 
@@ -269,11 +273,6 @@ def api_add_user_subscription(external_key):
     user_id = user[0]
     insert_subscription(user_id, list_id)
     
-    
-    # Example feedback sending logic (assuming dispatch_feedback is defined elsewhere)
-    # list_name = get_list_name(list_id)
-    # dispatch_feedback(user_id, "Subscription confirmation", f"You have subscribed to the list: {list_name}")
-    
     conn.close()
     
     return jsonify({'message': 'Subscription added successfully'}), 201
@@ -293,10 +292,6 @@ def api_remove_user_subscription(external_key, list_id):
 
     user_id = user[0]
     remove_subscription(user_id, list_id)
-    
-    # Example feedback sending logic (assuming dispatch_feedback is defined elsewhere)
-    #list_name = get_list_name(list_id)
-    #dispatch_feedback(user_id, "Subscription removal confirmation", f"Your subscription to list '{list_name}' has been removed.")
     
     conn.close()
     
@@ -344,18 +339,15 @@ def admin():
     c.execute('''SELECT * FROM lists''')
     lists = c.fetchall()
 
+    c.execute('''SELECT * FROM users''')
+    users = c.fetchall()
+
     # Fetch users and their subscriptions
-    c.execute('''SELECT users.id, users.name, users.email, users.external_key, lists.name
-                 FROM users
-                 LEFT JOIN subscriptions ON users.id = subscriptions.user_id
-                 LEFT JOIN lists ON subscriptions.list_id = lists.id''')
+    c.execute('''SELECT * FROM subscriptions''')
     subscriptions = c.fetchall()
 
     # Fetch items history
-    c.execute('''SELECT users.id, users.name, lists.name, items.date_sent, items.batch_id
-                 FROM users
-                 LEFT JOIN items ON users.id = items.user_id
-                 LEFT JOIN lists ON items.list_id = lists.id''')
+    c.execute('''SELECT * FROM items''')
     items = c.fetchall()
 
     conn.close()
@@ -365,7 +357,7 @@ def admin():
     else: 
         jobs = []
 
-    return render_template('admin.html', lists=lists, subscriptions=subscriptions, items=items, jobs=jobs)
+    return render_template('admin.html', lists=lists, users=users, subscriptions=subscriptions, items=items, jobs=jobs)
 
 @app.route('/logout')
 def logout():

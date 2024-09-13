@@ -37,50 +37,68 @@
             </tbody>
         </table>
 
-        <h2>Users and Subscriptions</h1>
+        <h2>Users</h1>
         <table border="1">
             <thead>
                 <tr>
                     <th>User ID</th>
+                    <th>External Key</th>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>External key</th>
-                    <th>List</th>
                 </tr>
             </thead>
             <tbody>
-                {% for user_subscription in subscriptions %}
+                {% for user in users %}
                 <tr>
-                    <td>{{ user_subscription[0] }}</td>
-                    <td>{{ user_subscription[1] }}</td>
-                    <td>{{ user_subscription[2] }}</td>
-                    <td>{{ user_subscription[3] }}</td>
-                    <td>{{ user_subscription[4] }}</td>
+                    <td>{{ user[0] }}</td>
+                    <td>{{ user[1] }}</td>
+                    <td>{{ user[2] }}</td>
+                    <td>{{ user[3] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+
+        <h2>Subscriptions</h1>
+            <table border="1">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User ID</th>
+                        <th>List ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subscription in subscriptions %}
+                    <tr>
+                        <td>{{ subscription[0] }}</td>
+                        <td>{{ subscription[1] }}</td>
+                        <td>{{ subscription[2] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
 
         <h2>Dispatch History</h1>
         <p>{{ items | length }} feedback items sent </p>
         <table border="1">
             <thead>
                 <tr>
+                    <th>ID</th>
                     <th>User ID</th>
-                    <th>Name</th>
-                    <th>List</th>
-                    <th>Date Sent</th>
+                    <th>List ID</th>
                     <th>Batch</th>
+                    <th>Date sent</th>
                 </tr>
             </thead>
             <tbody>
-                {% for history in items %}
+                {% for item in items %}
                 <tr>
-                    <td>{{ history[0] }}</td>
-                    <td>{{ history[1] }}</td>
-                    <td>{{ history[2] }}</td>
-                    <td>{{ history[3] }}</td>
-                    <td>{{ history[4] }}</td>
+                    <td>{{ item[0] }}</td>
+                    <td>{{ item[1] }}</td>
+                    <td>{{ item[2] }}</td>
+                    <td>{{ item[3] }}</td>
+                    <td>{{ item[4] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
