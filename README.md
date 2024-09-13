@@ -13,14 +13,12 @@ App features:
     * Lists - the different types of feedback participants can subscribe to
     * Subscriptions - who has subscribed to what lists
     * Email history - logging who has received what feedback
-    * Feedback on emails - capturing user feedback on the engagements they have recevied
  * Provides authenticated API endpoints as the main way of interacting with the database from an external service
     * Creating users
     * Subscribing / unsubscribing from lists
  * Some limited front-end functionality
     * Admin panel for user management and creating scheduled jobs for dispatching feedback
  * Interacts with the R code developed for generating the feedback items https://github.com/BiologicalRecordsCentre/recorder-feedback
- * Data export for analysis
 
 See the wiki for detailed documentation: https://github.com/simonrolph/recorder-feedback-controller/wiki
 
