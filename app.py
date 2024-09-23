@@ -309,7 +309,7 @@ def api_get_feedback_lists():
 
 
 # API endpoint to get all users subscribed to a specific list
-@app.route('/api/list/<list_id>', methods=['GET'])
+@app.route('/api/lists/<list_id>', methods=['GET'])
 @requires_auth_api
 def api_get_list_subscribers(list_id):
     # Connect to the database
