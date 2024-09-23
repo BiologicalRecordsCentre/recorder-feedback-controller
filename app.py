@@ -307,6 +307,48 @@ def api_get_feedback_lists():
     # Return the feedback lists in JSON format
     return jsonify({'lists': feedback_list_data}), 200
 
+
+# API endpoint to get all users subscribed to a specific list
+@app.route('/api/lists/<list_id>', methods=['GET'])
+#@requires_auth_api
+def api_get_list_subscribers(list_id):
+    # Connect to the database
+    conn = sqlite3.connect('data/users.db')
+    c = conn.cursor()
+
+    list_details = get_list_by_id(list_id)
+    
+    # Retrieve all user ids subscribed to the given list
+    c.execute('''SELECT user_id FROM subscriptions WHERE list_id = ?''', (list_id,))
+    subscribers = c.fetchall()
+    
+    if not subscribers:
+        conn.close()
+        return jsonify({'error': 'No subscribers found for this list'}), 404
+    
+    # Get details for each subscribed user
+    user_data = []
+    for subscriber in subscribers:
+        user_id = subscriber[0]
+        c.execute('''SELECT id, external_key, name, email FROM users WHERE id = ?''', (user_id,))
+        user = c.fetchone()
+        if user:
+            user_data.append({
+                'id': user[0],
+                'external_key': user[1],
+                'name': user[2],
+                'email': user[3]
+            })
+    
+    # Close the database connection
+    conn.close()
+    
+    # Return the list of subscribers in JSON format
+    return jsonify({'id': list_details[0],
+                    'name' : list_details[1],
+                    'description' : list_details[2],
+                    'subscribers': user_data}), 200
+
 # Webpage so a user can unsubscribe themselves
 #@app.route('/unsubscribe/<int:user_id>/<int:email_list_id>', methods=['GET', 'POST'])
 #def unsubscribe(user_id, email_list_id):
