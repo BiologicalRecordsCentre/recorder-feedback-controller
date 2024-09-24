@@ -4,6 +4,8 @@
 
 Biological recorders contribute valuable biodiversity data; and extensive infrastructure exists to support dataflows from recorders submitting records to databases. However, we lack infrastructure dedicated to providing informative feedback to recorders in response to the data they have contributed. By developing this infrastructure, we can create a feedback loop leading to better data and more engaged data providers. This work builds on automated, personalised feedback delivered by email to butterfly recorders through the MyDECIDE programme in 2021 (run as part of the DECIDE project 2020-2021).
 
+See https://github.com/BiologicalRecordsCentre/recorder-feedback for more details.
+
 The Recorder Feedback Controller App provides a standalone application that interacts with other recording platforms (such as Indicia platforms like iRecord and iNaturalist). It is developed in Python using the Flask app framework. Its main purpose is for user management and dispatch of personalised feedback for biological recording.
 
 App features:
