@@ -68,7 +68,7 @@ cp config_example.py config.py
 mkdir data
 python app.py
 ```
-Then navigate to `http://127.0.0.1:5000/` taking you to the limited front end. Click on the link to go to the admin panel and enter the username and password you specified in `config.py`.
+Then navigate to `http://127.0.0.1:5000/` taking you to the limited front end. Click on the link to go to the admin panel and enter the username (default: `admin`) and password you specified in `config.py`.
 
 ### Hosting R code
 
