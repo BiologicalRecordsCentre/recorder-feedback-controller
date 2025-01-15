@@ -6,7 +6,7 @@ import sqlite3
 from datetime import datetime
 from functools import wraps
 
-from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_PASSWORD, USE_SCHEDULER
+from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD, USE_SCHEDULER
 from functions_db_helpers import insert_user, get_user_by_external_key, update_user_by_id, remove_user, get_users_by_list, get_lists, insert_subscription, remove_subscription, get_subscriptions, get_user_items, get_list_by_id, get_list_name, check_subscription
 from functions_dispatch import generate_content_and_dispatch, send_email, dispatch_feedback
 from functions_test_data import init_db_test_data
@@ -15,6 +15,7 @@ app = Flask(__name__)
 
 ### CONFIG ----------------------
 # Configuration for the admin authentication
+app.config['ADMIN_USERNAME'] = ADMIN_USERNAME
 app.config['ADMIN_PASSWORD'] = ADMIN_PASSWORD
 
 # external service api token
@@ -35,7 +36,7 @@ app.config['USE_SCHEDULER'] = USE_SCHEDULER
 # Function to check authentication
 def check_auth(username, password):
     """Check if a username/password combination is valid."""
-    return username == 'admin' and password == app.config['ADMIN_PASSWORD']
+    return username == app.config['ADMIN_USERNAME'] and password == app.config['ADMIN_PASSWORD']
 
 # Function to request authentication
 def authenticate():
