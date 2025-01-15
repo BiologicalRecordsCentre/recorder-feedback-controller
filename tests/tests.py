@@ -1,12 +1,21 @@
 import unittest
-from app import app  # Import the Flask app instance from app.py
+from app import app, db
 
 class APITestCase(unittest.TestCase):
 
     def setUp(self):
-        """Set up a test client before each test."""
+        """Set up a test client and initialize the database before each test."""
         app.config['TESTING'] = True
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'  # Use in-memory database for tests
         self.client = app.test_client()
+        with app.app_context():
+            db.create_all()
+
+    def tearDown(self):
+        """Tear down the database after each test."""
+        with app.app_context():
+            db.session.remove()
+            db.drop_all()
 
     def test_add_user_post_valid_unauthorised(self):
         """Test the /api/add_user endpoint with a valid POST request."""

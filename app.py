@@ -2,14 +2,13 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, R
 from flask import current_app as app
 from flask_mail import Mail
 from apscheduler.schedulers.background import BackgroundScheduler
-import sqlite3
+from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from functools import wraps
+import os
 
 from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD, USE_SCHEDULER
-from functions_db_helpers import insert_user, get_user_by_external_key, update_user_by_id, remove_user, get_users_by_list, get_lists, insert_subscription, remove_subscription, get_subscriptions, get_user_items, get_list_by_id, get_list_name, check_subscription
 from functions_dispatch import generate_content_and_dispatch, send_email, dispatch_feedback
-from functions_test_data import init_db_test_data
 
 app = Flask(__name__)
 
@@ -31,6 +30,13 @@ app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
 app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
 
 app.config['USE_SCHEDULER'] = USE_SCHEDULER
+
+# Configuration for SQLAlchemy
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "data", "users.db")}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
 
 ### AUTHENTICATION DECORATORS
 # Function to check authentication
@@ -91,54 +97,135 @@ def requires_auth_api(f):
 
     return decorated_function
 
+
+
 # Function to initialize the database
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    external_key = db.Column(db.String(80), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(120), unique=False, nullable=False)
+    date_created = db.Column(db.DateTime, default=datetime.utcnow)
+
+class List(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.String(250))
+
+class Subscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    list_id = db.Column(db.Integer, db.ForeignKey('list.id'), nullable=False)
+    date_subscribed = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Item(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    list_id = db.Column(db.Integer, db.ForeignKey('list.id'), nullable=False)
+    batch_id = db.Column(db.String(120))
+    date_sent = db.Column(db.DateTime, default=datetime.utcnow)
+
 def init_db():
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
+    db.create_all()
 
-    # USERS
-    c.execute('''DROP TABLE IF EXISTS users''')
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                    external_key TEXT,
-                    name TEXT, 
-                    email TEXT,
-                    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                 )''')
+def init_db_test_data():
+    # Insert example users
+    example_users = [
+        User(external_key='42523', name='Robert H', email='robert@example.com'),
+        User(external_key='75437', name='Grace S', email='grace@example.com'),
+        User(external_key='54642', name='Alice Johnson', email='alice@example.com')
+    ]
+    db.session.bulk_save_objects(example_users)
 
-    # lists
-    c.execute('''DROP TABLE IF EXISTS lists''')  # Drop the existing table if it exists
-    c.execute('''CREATE TABLE IF NOT EXISTS lists (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                    name TEXT,
-                    description TEXT
-                 )''')
+    # Insert example lists
+    example_lists = [
+        List(id=1, name='myrecord_weekly', description="Every week you get a nice summary of what you've recorded, how nice!"),
+        List(id=2, name='decide2', description="Like DECIDE, but better!")
+    ]
+    db.session.bulk_save_objects(example_lists)
 
-    # subscriptions to lists
-    c.execute('''DROP TABLE IF EXISTS subscriptions''')  # Drop the existing subscription table if it exists
-    c.execute('''CREATE TABLE IF NOT EXISTS subscriptions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER,
-                    list_id INTEGER,
-                    date_subscribed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(user_id) REFERENCES users(id),
-                    FOREIGN KEY(list_id) REFERENCES lists(id)
-                 )''')
+    # Insert example subscriptions
+    example_subscriptions = [
+        Subscription(user_id=1, list_id=1),
+        Subscription(user_id=1, list_id=2),
+        Subscription(user_id=2, list_id=1),
+        Subscription(user_id=3, list_id=2)
+    ]
+    db.session.bulk_save_objects(example_subscriptions)
 
-    #item history
-    c.execute('''DROP TABLE IF EXISTS items''')  # Drop the existing item history table if it exists
-    c.execute('''CREATE TABLE IF NOT EXISTS items (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER,
-                    list_id INTEGER,
-                    batch_id TEXT,
-                    date_sent TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(user_id) REFERENCES users(id),
-                    FOREIGN KEY(list_id) REFERENCES lists(id)
-                 )''')
-    
-    conn.commit()
-    conn.close()
+    # Insert example email history
+    example_items = [
+        Item(user_id=1, list_id=1, batch_id="test_batch1"),
+        Item(user_id=1, list_id=1, batch_id="test_batch1"),
+        Item(user_id=2, list_id=1, batch_id="test_batch2"),
+        Item(user_id=2, list_id=1, batch_id="test_batch2"),
+        Item(user_id=3, list_id=2, batch_id="test_batch2")
+    ]
+    db.session.bulk_save_objects(example_items)
+
+    db.session.commit()
+
+
+
+def insert_user(external_key, name, email):
+    user = User(external_key=external_key, name=name, email=email)
+    db.session.add(user)
+    db.session.commit()
+
+def get_user_by_external_key(external_key):
+    return User.query.filter_by(external_key=external_key).first()
+
+def update_user_by_id(user_id, external_key, name, email):
+    user = User.query.get(user_id)
+    if user:
+        user.external_key = external_key
+        user.name = name
+        user.email = email
+        db.session.commit()
+
+def remove_user(user_id):
+    user = User.query.get(user_id)
+    if user:
+        db.session.delete(user)
+        db.session.commit()
+
+def get_users_by_list(list_id):
+    return User.query.join(Subscription).filter(Subscription.list_id == list_id).all()
+
+def get_lists():
+    return List.query.all()
+
+def get_list_name(list_id):
+    list = List.query.get(list_id)
+    return list.name if list else None
+
+def get_list_by_id(list_id):
+    return List.query.get(list_id)
+
+def insert_subscription(user_id, list_id):
+    subscription = Subscription(user_id=user_id, list_id=list_id)
+    db.session.add(subscription)
+    db.session.commit()
+
+def remove_subscription(user_id, list_id):
+    subscription = Subscription.query.filter_by(user_id=user_id, list_id=list_id).first()
+    if subscription:
+        db.session.delete(subscription)
+        db.session.commit()
+
+def get_subscriptions(user_id):
+    return Subscription.query.filter_by(user_id=user_id).all()
+
+def check_subscription(user_id, list_id):
+    return Subscription.query.filter_by(user_id=user_id, list_id=list_id).first()
+
+def add_item_sent(user_id, list_id, batch_id):
+    item = Item(user_id=user_id, list_id=list_id, batch_id=batch_id)
+    db.session.add(item)
+    db.session.commit()
+
+def get_user_items(user_id):
+    return Item.query.filter_by(user_id=user_id).all()
 
 
 
@@ -180,10 +267,10 @@ def api_get_user(external_key):
     
     # Assuming user is returned as a tuple with (id, external_key, name, email)
     user_data = {
-        'id': user[0],
-        'external_key': user[1],
-        'name': user[2],
-        'email': user[3]
+        'id': user.id,
+        'external_key': user.external_key,
+        'name': user.name,
+        'email': user.email
     }
     
     return jsonify(user_data), 200
@@ -204,7 +291,7 @@ def api_update_user(external_key):
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
-    if user[1] == external_key:
+    if user.external_key == external_key:
         return jsonify({'error': 'User already exists with this external_key'}), 400
 
     update_user_by_id(user[0], external_key, name, email)
@@ -220,32 +307,32 @@ def api_get_subscriptions(external_key):
         return jsonify({'error': 'User not found'}), 404
 
     #get the user id
-    user_id = user[0]
+    user_id = user.id
 
     #ge the IDs for all the lists the user is subscribed to
     subscriptions = get_subscriptions(user_id)
     subscription_ids = []
     for subscription in subscriptions:
         subscription_ids.append(
-            subscription[2]
+            subscription.id
         )
 
     # Create a response list showing all lists and subscription status
     feedback_lists = get_lists()
     subscription_status = []
     for feedback_lists in feedback_lists:
-        is_subscribed = feedback_lists[0] in subscription_ids
+        is_subscribed = feedback_lists.id in subscription_ids
         subscription_status.append({
-            'id': feedback_lists[0],
-            'name': feedback_lists[1],
-            'description': feedback_lists[2],
+            'id': feedback_lists.id,
+            'name': feedback_lists.name,
+            'description': feedback_lists.description,
             'subscribed': is_subscribed
         })
 
     return jsonify({
         'id': user_id,
-        'external_key': user[1],
-        'name': user[2],
+        'external_key': user.external_key,
+        'name': user.name,
         'lists': subscription_status,
     }), 200
 
@@ -264,7 +351,7 @@ def api_add_user_subscription(external_key):
     if not user:
         return jsonify({'error': 'User not found'}), 404
     
-    user_id = user[0]
+    user_id = user.id
     
     subscription = check_subscription(user_id,list_id)
 
@@ -284,7 +371,7 @@ def api_remove_user_subscription(external_key, list_id):
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
-    user_id = user[0]
+    user_id = user.id
     remove_subscription(user_id, list_id)
     
     return jsonify({'message': 'Subscription removed successfully'}), 200
@@ -300,9 +387,9 @@ def api_get_feedback_lists():
     feedback_list_data = []
     for feedback_list in feedback_lists:
         feedback_list_data.append({
-            'id': feedback_list[0],
-            'name': feedback_list[1],
-            'description': feedback_list[2],
+            'id': feedback_list.id,
+            'name': feedback_list.name,
+            'description': feedback_list.description,
         })
     
     # Return the feedback lists in JSON format
@@ -313,41 +400,33 @@ def api_get_feedback_lists():
 @app.route('/api/lists/<list_id>', methods=['GET'])
 @requires_auth_api
 def api_get_list_subscribers(list_id):
-    # Connect to the database
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
 
     list_details = get_list_by_id(list_id)
     
     # Retrieve all user ids subscribed to the given list
-    c.execute('''SELECT user_id FROM subscriptions WHERE list_id = ?''', (list_id,))
-    subscribers = c.fetchall()
+    subscribers = db.session.query(Subscription.user_id).filter_by(list_id=list_id).all()
     
     if not subscribers:
-        conn.close()
         return jsonify({'error': 'No subscribers found for this list'}), 404
     
     # Get details for each subscribed user
     user_data = []
     for subscriber in subscribers:
         user_id = subscriber[0]
-        c.execute('''SELECT id, external_key, name, email FROM users WHERE id = ?''', (user_id,))
-        user = c.fetchone()
+        user = User.query.filter_by(id=user_id).first()
         if user:
             user_data.append({
-                'id': user[0],
-                'external_key': user[1],
-                'name': user[2],
-                'email': user[3]
+                'id': user.id,
+                'external_key': user.external_key,
+                'name': user.name,
+                'email': user.email
             })
     
-    # Close the database connection
-    conn.close()
     
     # Return the list of subscribers in JSON format
-    return jsonify({'id': list_details[0],
-                    'name' : list_details[1],
-                    'description' : list_details[2],
+    return jsonify({'id': list_details.id,
+                    'name' : list_details.name,
+                    'description' : list_details.description,
                     'subscribers': user_data}), 200
 
 # Webpage so a user can unsubscribe themselves
@@ -368,23 +447,14 @@ def api_get_list_subscribers(list_id):
 @requires_auth
 def admin():
     # Fetch lists
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT * FROM lists''')
-    lists = c.fetchall()
-
-    c.execute('''SELECT * FROM users''')
-    users = c.fetchall()
+    lists = List.query.all()
 
     # Fetch users and their subscriptions
-    c.execute('''SELECT * FROM subscriptions''')
-    subscriptions = c.fetchall()
+    users = User.query.all()
+    subscriptions = Subscription.query.all()
 
     # Fetch items history
-    c.execute('''SELECT * FROM items''')
-    items = c.fetchall()
-
-    conn.close()
+    items = Item.query.all()
     
     if app.config['USE_SCHEDULER']:
         jobs = scheduler.get_jobs()
@@ -511,8 +581,10 @@ if app.config['USE_SCHEDULER']:
 mail = Mail(app)
 
 if __name__ == '__main__':
-    init_db()  # Initialize the database when the app starts
-    init_db_test_data()
+    with app.app_context():
+        db.drop_all()
+        db.create_all()  # Initialize the database when the app starts
+        init_db_test_data() # Insert test data into the database
     app.run(debug=True)
 
 

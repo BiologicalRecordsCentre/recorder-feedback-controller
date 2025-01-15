@@ -1,8 +1,8 @@
 import requests
 import json
 
-BASE_URL = ''  # Modify if your API runs on a different port or host
-AUTH_TOKEN = ''      # Replace with your actual token
+BASE_URL = 'http://127.0.0.1:5000/api'  # Modify if your API runs on a different port or host
+AUTH_TOKEN = 'secret_token'      # Replace with your actual token
 
 # Common headers including the authorization token
 HEADERS = {

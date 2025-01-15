@@ -7,16 +7,12 @@ from flask_mail import Message
 import csv
 
 from config import RSCRIPT_PATH, INDICIA_USER, INDICIA_SECRET
-from functions_db_helpers import get_users_by_list, add_item_sent, get_list_name
 
 ### SENDING EMAILS FUNCTIONALITY -----------------------
 # Dispatch feedback
 def dispatch_feedback(recipient_internal_id,subject,html):
     # Check if the user exists
-    conn = sqlite3.connect('data/users.db')
-    c = conn.cursor()
-    c.execute('''SELECT * FROM users WHERE id = ?''', (recipient_internal_id,))
-    user = c.fetchone()
+    user = User.query.filter_by(id=recipient_internal_id).first()
     if not user:
         raise Exception("No user found with that ID")
     

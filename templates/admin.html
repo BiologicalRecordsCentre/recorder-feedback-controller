@@ -28,9 +28,9 @@
             <tbody>
                 {% for email_list in lists %}
                 <tr>
-                    <td>{{ email_list[0] }}</td>
-                    <td>{{ email_list[1] }}</td>
-                    <td>{{ email_list[2] }}</td>
+                    <td>{{ email_list.id }}</td>
+                    <td>{{ email_list.name }}</td>
+                    <td>{{ email_list.description }}</td>
                     <td><a href="/manual_dispatch/{{ email_list[0] }}">✉ Manual dispatch</a></td>
                 </tr>
                 {% endfor %}
@@ -50,10 +50,10 @@
             <tbody>
                 {% for user in users %}
                 <tr>
-                    <td>{{ user[0] }}</td>
-                    <td>{{ user[1] }}</td>
-                    <td>{{ user[2] }}</td>
-                    <td>{{ user[3] }}</td>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.external_key }}</td>
+                    <td>{{ user.name }}</td>
+                    <td>{{ user.email }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -71,9 +71,9 @@
                 <tbody>
                     {% for subscription in subscriptions %}
                     <tr>
-                        <td>{{ subscription[0] }}</td>
-                        <td>{{ subscription[1] }}</td>
-                        <td>{{ subscription[2] }}</td>
+                        <td>{{ subscription.id }}</td>
+                        <td>{{ subscription.user_id }}</td>
+                        <td>{{ subscription.list_id }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -94,11 +94,11 @@
             <tbody>
                 {% for item in items %}
                 <tr>
-                    <td>{{ item[0] }}</td>
-                    <td>{{ item[1] }}</td>
-                    <td>{{ item[2] }}</td>
-                    <td>{{ item[3] }}</td>
-                    <td>{{ item[4] }}</td>
+                    <td>{{ item.id }}</td>
+                    <td>{{ item.user_id }}</td>
+                    <td>{{ item.list_id }}</td>
+                    <td>{{ item.batch_id }}</td>
+                    <td>{{ item.date_sent }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
