@@ -66,14 +66,16 @@
                         <th>ID</th>
                         <th>User ID</th>
                         <th>List ID</th>
+                        <th>Unsubscribe</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for subscription in subscriptions %}
                     <tr>
-                        <td>{{ subscription.id }}</td>
+                        <td>{{ subscription.user.external_key }}</td>
                         <td>{{ subscription.user_id }}</td>
                         <td>{{ subscription.list_id }}</td>
+                        <td><a href="/unsubscribe/{{ subscription.user.external_key }}/{{ subscription.list_id}}">Unsubscribe</a></td>
                     </tr>
                     {% endfor %}
                 </tbody>

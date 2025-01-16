@@ -1,14 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
 from flask import current_app as app
-from flask_mail import Mail
+from flask_mail import Mail, Message
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from functools import wraps
 import os
 
-from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD
-from functions_dispatch import send_email
+from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD
 
 app = Flask(__name__)
 
@@ -25,6 +24,7 @@ app.config['SERVICE_API_TOKEN'] = SERVICE_API_TOKEN
 app.config['MAIL_SERVER'] = MAIL_SERVER
 app.config['MAIL_PORT'] = MAIL_PORT
 app.config['MAIL_USE_TLS'] = MAIL_USE_TLS
+app.config['MAIL_USE_SSL'] = MAIL_USE_SSL
 app.config['MAIL_USERNAME'] = MAIL_USERNAME
 app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
 app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
@@ -113,6 +113,7 @@ class List(db.Model):
 class Subscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user = db.relationship(User)
     list_id = db.Column(db.Integer, db.ForeignKey('list.id'), nullable=False)
     date_subscribed = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -427,16 +428,22 @@ def api_get_list_subscribers(list_id):
                     'description' : list_details.description,
                     'subscribers': user_data}), 200
 
+
+## USER FACING
 # Webpage so a user can unsubscribe themselves
-#@app.route('/unsubscribe/<int:user_id>/<int:email_list_id>', methods=['GET', 'POST'])
-#def unsubscribe(user_id, email_list_id):
-#    if request.method == 'GET':
-#        # You may want to check if the user is subscribed to the email list before rendering the page
-#        return render_template('unsubscribe.html', user_id=user_id, email_list_id=email_list_id)
-#    elif request.method == 'POST':
-#        # Process the unsubscribe action
-#        remove_subscription(user_id, email_list_id)
-#        return render_template('unsubscribed.html') # Redirect to homepage or any other page after unsubscribing
+@app.route('/unsubscribe/<int:external_key>/<int:list_id>', methods=['GET', 'POST'])
+def unsubscribe(external_key, list_id):
+    list = get_list_by_id(list_id)
+    user = get_user_by_external_key(external_key)
+    if request.method == 'GET':
+        list = get_list_by_id(list_id)
+        user = get_user_by_external_key(external_key)
+        # You may want to check if the user is subscribed to the email list before rendering the page
+        return render_template('unsubscribe.html', user=user, list=list)
+    elif request.method == 'POST':
+        # Process the unsubscribe action
+        remove_subscription(user.id, list_id)
+        return render_template('unsubscribed.html') # Redirect to homepage or any other page after unsubscribing
 
 
 ### ADMIN ---------------------------
@@ -506,6 +513,16 @@ def send_test_email():
 
 # Initialize Flask-Mail
 mail = Mail(app)
+
+# Function to send email
+def send_email(recipient,subject,html):
+    from app import app, mail
+    with app.app_context():
+        msg = Message(subject=subject, recipients=[recipient])
+        msg.html = html
+        mail.send(msg)
+        print("Email sent successfully at", datetime.now())
+
 
 if __name__ == '__main__':
     with app.app_context():
