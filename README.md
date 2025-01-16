@@ -8,8 +8,6 @@ Part of the Recorder Feedback system: https://github.com/BiologicalRecordsCentre
 
 Biological recorders contribute valuable biodiversity data; and extensive infrastructure exists to support dataflows from recorders submitting records to databases. However, we lack infrastructure dedicated to providing informative feedback to recorders in response to the data they have contributed. By developing this infrastructure, we can create a feedback loop leading to better data and more engaged data providers. This work builds on automated, personalised feedback delivered by email to butterfly recorders through the MyDECIDE programme in 2021 (run as part of the DECIDE project 2020-2021).
 
-See  for more details.
-
 The Recorder Feedback Controller App provides a standalone application that interacts with other recording platforms (such as Indicia platforms like iRecord and iNaturalist). It is developed in Python using the Flask app framework. Its main purpose is for user management and dispatch of personalised feedback for biological recording.
 
 App features:
@@ -60,24 +58,56 @@ Activate the virtualenv (not possible on UKCEH managed machines because of IT po
 Install packages using pip to the user library
 `python -m pip install flask flask_mail apscheduler pyyaml`
 
-### Lauch Flask app
+### Configuring and launching Flask app
 
-Create the config.py by copying from config_example.py and filling in details. Create a folder named `data`. Run the app
+Create the config.py by copying from config_example.py and filling in details. Create a folder named `data`.
 ```
 cp config_example.py config.py
 mkdir data
+```
+
+This is the admin page log in username/password
+```
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "secret_password"
+```
+
+This is specific to the controller app and specifies if you want the API endpoints to be authenticated (by default you want this to be true but might help for testing if you turn it off). If it is `True` then it is authenitcated by a token you have provided here in the config for `SERVICE_API_TOKEN`. 
+```
+AUTHENTICATE_API = True
+SERVICE_API_TOKEN = "complicated_token"
+```
+
+This is the configuration for Flask-mail,see https://flask-mail.readthedocs.io/en/latest/ for more details. Youcould use gmail as your SMTP service. Note that in UKCEH using smtp from a laptop via the VPN gets error `[WinError 10060] A connection attempt failed...` so make sure you're not on the VPN.
+
+```
+MAIL_SERVER = 'smtp.example.com'
+MAIL_PORT=465
+MAIL_USE_TLS=False
+MAIL_USE_SSL=True
+MAIL_USERNAME='USERNAME'
+MAIL_PASSWORD='PASSWORD'
+MAIL_DEFAULT_SENDER='noreply@example.com'
+```
+
+Now you can run the app
+
+```
 python app.py
 ```
+
 Then navigate to `http://127.0.0.1:5000/` taking you to the limited front end. Click on the link to go to the admin panel and enter the username (default: `admin`) and password you specified in `config.py`.
 
-### Hosting R code
+### Admin
 
-This app calls R code which generates the html feedback items before dispatch. Here I want to make a feedback list called 'weekly-report'. Navigate to the R directory, clone the R code repository then rename the folder to 'weekly-report' (or whatever you wish to call your list).
+The admin (`/admin`) page gives you some limited functionality for managing the database. It provides tables of lists, users, subscriptions (the links between lists and users), dispatch history, and feedback. There are links to unsubscribe a user from a list or submit test feedback for an item.
 
-```
-cd R
-git clone https://github.com/BiologicalRecordsCentre/recorder-feedback
-ren recorder-feedback weekly-report
-```
+#### Useful pages
 
-Follow the set-up instructions located here: https://biologicalrecordscentre.github.io/recorder-feedback/
+`/reset_data` will reset the database - remove this page if you're in production!
+
+`/send_test_email` will send an email to the address specified in the config as `TEST_EMAIL`.
+
+`/export_data` This will export the database as a csv
+
+`/create_list` This will allow you to add a new list
