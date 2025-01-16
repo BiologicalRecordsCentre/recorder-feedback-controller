@@ -130,7 +130,7 @@ def init_db():
 def init_db_test_data():
     # Insert example users
     example_users = [
-        User(external_key='42523', name='Robert H', email='robert@example.com'),
+        User(external_key='42523', name='Robert H', email='simrol@ceh.ac.uk'),
         User(external_key='75437', name='Grace S', email='grace@example.com'),
         User(external_key='54642', name='Alice Johnson', email='alice@example.com')
     ]
@@ -203,14 +203,18 @@ def get_list_by_id(list_id):
 
 def insert_subscription(user_id, list_id):
     subscription = Subscription(user_id=user_id, list_id=list_id)
+    user = User.query.get(user_id)
     db.session.add(subscription)
     db.session.commit()
+    send_email(user.email, "Unsubscribed", f"You have been subscribed {get_list_name(list_id)}")
 
 def remove_subscription(user_id, list_id):
     subscription = Subscription.query.filter_by(user_id=user_id, list_id=list_id).first()
+    user = User.query.get(user_id)
     if subscription:
         db.session.delete(subscription)
         db.session.commit()
+        send_email(user.email, "Unsubscribed", f"You have been unsubscribed from {get_list_name(list_id)}")
 
 def get_subscriptions(user_id):
     return Subscription.query.filter_by(user_id=user_id).all()
@@ -510,6 +514,19 @@ def send_test_email():
         return redirect(url_for('index'))  # Redirect to homepage or any other page
     return render_template('send_test_email.html')
 
+
+# page to create a new list
+@app.route('/create_list', methods=['GET', 'POST'])
+@requires_auth
+def create_list():
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form['description']
+        list = List(name=name, description=description)
+        db.session.add(list)
+        db.session.commit()
+        return redirect(url_for('admin'))
+    return render_template('create_list.html')
 
 # Initialize Flask-Mail
 mail = Mail(app)

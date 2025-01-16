@@ -31,11 +31,12 @@
                     <td>{{ email_list.id }}</td>
                     <td>{{ email_list.name }}</td>
                     <td>{{ email_list.description }}</td>
-                    <td><a href="/manual_dispatch/{{ email_list[0] }}">✉ Manual dispatch</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+
+        <a href="/create_list">Create a new list</a>
 
         <h2>Users</h1>
         <table border="1">
@@ -64,6 +65,7 @@
                 <thead>
                     <tr>
                         <th>ID</th>
+                        <th>User name</th>
                         <th>User ID</th>
                         <th>List ID</th>
                         <th>Unsubscribe</th>
@@ -73,6 +75,7 @@
                     {% for subscription in subscriptions %}
                     <tr>
                         <td>{{ subscription.user.external_key }}</td>
+                        <td>{{ subscription.user.name }}</td>
                         <td>{{ subscription.user_id }}</td>
                         <td>{{ subscription.list_id }}</td>
                         <td><a href="/unsubscribe/{{ subscription.user.external_key }}/{{ subscription.list_id}}">Unsubscribe</a></td>

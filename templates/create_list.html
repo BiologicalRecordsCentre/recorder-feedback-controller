@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create List</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Create a New List</h1>
+    <form action="/create_list" method="post">
+        <label for="name">List Name:</label>
+        <input type="text" id="name" name="name" required>
+        <br>
+        <label for="description">List Description:</label>
+        <input type="text" id="description" name="description" required>
+        <br>
+        <button type="submit">Create List</button>
+    </form>
+</body>
+</html>
