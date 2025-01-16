@@ -119,10 +119,17 @@ class Subscription(db.Model):
 
 class Item(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    content_id = db.Column(db.Integer, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     list_id = db.Column(db.Integer, db.ForeignKey('list.id'), nullable=False)
     batch_id = db.Column(db.String(120))
     date_sent = db.Column(db.DateTime, default=datetime.utcnow)
+
+class FeedbackOnItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    item_content_id = db.Column(db.Integer, db.ForeignKey('item.content_id'), nullable=False)
+    comment = db.Column(db.String(250))
+    date = db.Column(db.DateTime, default=datetime.utcnow)
 
 def init_db():
     db.create_all()
@@ -154,11 +161,11 @@ def init_db_test_data():
 
     # Insert example email history
     example_items = [
-        Item(user_id=1, list_id=1, batch_id="test_batch1"),
-        Item(user_id=1, list_id=1, batch_id="test_batch1"),
-        Item(user_id=2, list_id=1, batch_id="test_batch2"),
-        Item(user_id=2, list_id=1, batch_id="test_batch2"),
-        Item(user_id=3, list_id=2, batch_id="test_batch2")
+        Item(user_id=1, content_id = 1, list_id=1, batch_id="test_batch1"),
+        Item(user_id=1, content_id = 2, list_id=1, batch_id="test_batch1"),
+        Item(user_id=2, content_id = 3, list_id=1, batch_id="test_batch2"),
+        Item(user_id=2, content_id = 4, list_id=1, batch_id="test_batch2"),
+        Item(user_id=3, content_id = 5, list_id=2, batch_id="test_batch2")
     ]
     db.session.bulk_save_objects(example_items)
 
@@ -449,6 +456,16 @@ def unsubscribe(external_key, list_id):
         remove_subscription(user.id, list_id)
         return render_template('unsubscribed.html') # Redirect to homepage or any other page after unsubscribing
 
+@app.route('/submit_feedback/<int:item_content_id>', methods=['GET', 'POST'])
+def submit_feedback(item_content_id):
+    if request.method == 'POST':
+        comment = request.form['comment']
+        feedback = FeedbackOnItem(item_content_id=item_content_id, comment=comment)
+        db.session.add(feedback)
+        db.session.commit()
+        return render_template('submitted_feedback.html')
+    return render_template('submit_feedback.html', item_content_id=item_content_id)
+
 
 ### ADMIN ---------------------------
 # Route for the admin page
@@ -461,11 +478,12 @@ def admin():
     # Fetch users and their subscriptions
     users = User.query.all()
     subscriptions = Subscription.query.all()
+    feedback = FeedbackOnItem.query.all()
 
     # Fetch items history
     items = Item.query.all()
 
-    return render_template('admin.html', lists=lists, users=users, subscriptions=subscriptions, items=items)
+    return render_template('admin.html', lists=lists, users=users, subscriptions=subscriptions, items=items,feedback = feedback)
 
 @app.route('/logout')
 def logout():

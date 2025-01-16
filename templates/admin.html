@@ -64,7 +64,7 @@
             <table border="1">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>External key</th>
                         <th>User name</th>
                         <th>User ID</th>
                         <th>List ID</th>
@@ -85,11 +85,12 @@
             </table>
 
         <h2>Dispatch History</h1>
-        <p>{{ items | length }} feedback items sent </p>
+        <p>{{ items | length }} items sent </p>
         <table border="1">
             <thead>
                 <tr>
                     <th>ID</th>
+                    <th>Content ID</th>
                     <th>User ID</th>
                     <th>List ID</th>
                     <th>Batch</th>
@@ -100,14 +101,35 @@
                 {% for item in items %}
                 <tr>
                     <td>{{ item.id }}</td>
+                    <td>{{ item.content_id }}</td>
                     <td>{{ item.user_id }}</td>
                     <td>{{ item.list_id }}</td>
                     <td>{{ item.batch_id }}</td>
                     <td>{{ item.date_sent }}</td>
+                    <td><a href="/submit_feedback/{{ item.id }}">Submit test feedback</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+
+        <h2>Feedback</h1>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Content ID</th>
+                    <th>Comment</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for feedback in feedback %}
+                <tr>
+                    <td>{{ feedback.id }}</td>
+                    <td>{{ feedback.item_content_id }}</td>
+                    <td>{{ feedback.comment }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
     </div>
 </body>
 </html>
