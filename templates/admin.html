@@ -103,43 +103,6 @@
                 {% endfor %}
             </tbody>
         </table>
-
-        <h2>Scheduled jobs</h1>
-        
-        <table border="1">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Function</th>
-                    <th>Arguments</th>
-                    <th>Trigger</th>
-                    <th>Max instances</th>
-                    <th>Next run</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for job in jobs %}
-                <tr>
-                    <td>{{ job.id }}</td>
-                    <td>{{ job.name }}</td>
-                    <td>{{ job.func }}</td>
-                    <td>{{ job.args }}</td>
-                    <td>{{ job.trigger }}</td>
-                    <td>{{ job.max_instances }}</td>
-                    <td>{{ job.next_run_time }}</td>
-                    <td>
-                        <!-- Form to delete the job -->
-                        <form action="{{ url_for('delete_job', job_id=job.id) }}" method="post" style="display:inline;">
-                            <input type="submit" value="Delete">
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <a href="/create-job">+ Create new job</a>
     </div>
 </body>
 </html>

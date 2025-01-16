@@ -7,8 +7,8 @@ from datetime import datetime
 from functools import wraps
 import os
 
-from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD, USE_SCHEDULER
-from functions_dispatch import generate_content_and_dispatch, send_email, dispatch_feedback
+from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_MODE, TEST_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD
+from functions_dispatch import send_email
 
 app = Flask(__name__)
 
@@ -28,8 +28,6 @@ app.config['MAIL_USE_TLS'] = MAIL_USE_TLS
 app.config['MAIL_USERNAME'] = MAIL_USERNAME
 app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
 app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
-
-app.config['USE_SCHEDULER'] = USE_SCHEDULER
 
 # Configuration for SQLAlchemy
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -455,13 +453,8 @@ def admin():
 
     # Fetch items history
     items = Item.query.all()
-    
-    if app.config['USE_SCHEDULER']:
-        jobs = scheduler.get_jobs()
-    else: 
-        jobs = []
 
-    return render_template('admin.html', lists=lists, users=users, subscriptions=subscriptions, items=items, jobs=jobs)
+    return render_template('admin.html', lists=lists, users=users, subscriptions=subscriptions, items=items)
 
 @app.route('/logout')
 def logout():
@@ -496,8 +489,9 @@ def export_data_page():
 @app.route('/reset_data')
 @requires_auth
 def reset_data():
-    init_db()
-    init_db_test_data()
+    db.drop_all()
+    db.create_all()  # Initialize the database when the app starts
+    init_db_test_data() # Insert test data into the database
     return redirect(url_for('admin'))
 
 # Route to trigger sending of test email
@@ -508,73 +502,6 @@ def send_test_email():
         send_email(TEST_EMAIL,"Test email","This is a test email sent from Flask.")  # Call the function to send the email
         return redirect(url_for('index'))  # Redirect to homepage or any other page
     return render_template('send_test_email.html')
-
-
-# Route to trigger manual dispatch of an email list
-@app.route('/manual_dispatch/<int:list_id>', methods=['GET', 'POST'])
-@requires_auth
-def manual_dispatch(list_id):
-    list = get_list_by_id(list_id)
-    if request.method == 'POST':
-        stdout, stderr = generate_content_and_dispatch(list_id)  # Call the function to send generate and dispatch
-        return render_template('script_log.html', stdout=stdout, stderr=stderr)  # Redirect to homepage or any other page
-    return render_template('manual_dispatch.html',list=list)
-
-
-
-@app.route('/create-job', methods=['GET'])
-@requires_auth
-def create_job_form():
-
-    # Fetch email lists
-    lists = get_lists()
-
-    """Render the form to create a new scheduled job."""
-    return render_template('create_job.html',lists=lists)
-
-@app.route('/create-job', methods=['POST'])
-@requires_auth
-def create_job():
-    """Handle creating a new scheduled job."""
-    job_name = request.form['job_name']
-    list_id = request.form['list']
-    start_date_str = request.form['start_datetime']
-    days = int(request.form['days'])
-
-
-    # Parse the start date string into a datetime object
-    try:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%dT%H:%M')
-    except ValueError:
-        # Handle the error, e.g., return an error message to the user
-        return "Invalid date format. Please use YYYY-MM-DDTHH:MM format.", 400
-
-    #days= request.form['days']
-    args = [list_id]
-
-    scheduler.add_job(generate_content_and_dispatch, 'interval',args=args,start_date = start_date,name = job_name,days = days)
-
-    return redirect(url_for('admin'))
-
-# Route to delete a scheduled job
-@app.route('/delete-job/<job_id>', methods=['POST'])
-@requires_auth
-def delete_job(job_id):
-    """Handle deleting a scheduled job."""
-    job = scheduler.get_job(job_id)
-    if job:
-        scheduler.remove_job(job_id)
-        return redirect(url_for('admin'))
-    else:
-        return jsonify({'error': 'Job not found'}), 404
-
-
-
-### APP ----------------
-# Initialize scheduler
-if app.config['USE_SCHEDULER']:
-    scheduler = BackgroundScheduler()
-    scheduler.start()
 
 
 # Initialize Flask-Mail
