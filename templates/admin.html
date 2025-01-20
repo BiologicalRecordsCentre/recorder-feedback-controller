@@ -90,7 +90,7 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Content ID</th>
+                    <th>Content Key</th>
                     <th>User ID</th>
                     <th>List ID</th>
                     <th>Batch</th>
@@ -101,7 +101,7 @@
                 {% for item in items %}
                 <tr>
                     <td>{{ item.id }}</td>
-                    <td>{{ item.content_id }}</td>
+                    <td>{{ item.content_key }}</td>
                     <td>{{ item.user_id }}</td>
                     <td>{{ item.list_id }}</td>
                     <td>{{ item.batch_id }}</td>
@@ -117,7 +117,7 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Content ID</th>
+                    <th>Item ID</th>
                     <th>Comment</th>
                 </tr>
             </thead>
@@ -125,7 +125,7 @@
                 {% for feedback in feedback %}
                 <tr>
                     <td>{{ feedback.id }}</td>
-                    <td>{{ feedback.item_content_id }}</td>
+                    <td>{{ feedback.item_content_key }}</td>
                     <td>{{ feedback.comment }}</td>
                 </tr>
                 {% endfor %}

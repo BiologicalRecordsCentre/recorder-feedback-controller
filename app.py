@@ -119,7 +119,7 @@ class Subscription(db.Model):
 
 class Item(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    content_id = db.Column(db.Integer, nullable=False)
+    content_key = db.Column(db.Integer, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     list_id = db.Column(db.Integer, db.ForeignKey('list.id'), nullable=False)
     batch_id = db.Column(db.String(120))
@@ -127,7 +127,7 @@ class Item(db.Model):
 
 class FeedbackOnItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    item_content_id = db.Column(db.Integer, db.ForeignKey('item.content_id'), nullable=False)
+    item_content_key = db.Column(db.Integer, db.ForeignKey('item.content_key'), nullable=False)
     comment = db.Column(db.String(250))
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -161,11 +161,11 @@ def init_db_test_data():
 
     # Insert example email history
     example_items = [
-        Item(user_id=1, content_id = 1, list_id=1, batch_id="test_batch1"),
-        Item(user_id=1, content_id = 2, list_id=1, batch_id="test_batch1"),
-        Item(user_id=2, content_id = 3, list_id=1, batch_id="test_batch2"),
-        Item(user_id=2, content_id = 4, list_id=1, batch_id="test_batch2"),
-        Item(user_id=3, content_id = 5, list_id=2, batch_id="test_batch2")
+        Item(user_id=1, content_key = 1, list_id=1, batch_id="test_batch1"),
+        Item(user_id=1, content_key = 2, list_id=1, batch_id="test_batch1"),
+        Item(user_id=2, content_key = 3, list_id=1, batch_id="test_batch2"),
+        Item(user_id=2, content_key = 4, list_id=1, batch_id="test_batch2"),
+        Item(user_id=3, content_key = 5, list_id=2, batch_id="test_batch2")
     ]
     db.session.bulk_save_objects(example_items)
 
@@ -440,6 +440,39 @@ def api_get_list_subscribers(list_id):
                     'subscribers': user_data}), 200
 
 
+@app.route('/api/items', methods=['POST'])
+@requires_auth_api
+def create_item():
+    data = request.get_json()
+    content_key = data.get('content_key')
+    user_external_key = data.get('user_external_key')
+    list_id = data.get('list_id')
+    batch_id = data.get('batch_id')
+
+    if not content_key or not user_external_key or not list_id:
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    user_id = get_user_by_external_key(user_external_key).id
+
+    new_item = Item(
+        content_key=content_key,
+        user_id=user_id,
+        list_id=list_id,
+        batch_id=batch_id
+    )
+    db.session.add(new_item)
+    db.session.commit()
+
+    return jsonify({'message': 'Item created successfully', 'item': {
+        'id': new_item.id,
+        'content_key': new_item.content_key,
+        'user_id': new_item.user_id,
+        'list_id': new_item.list_id,
+        'batch_id': new_item.batch_id,
+        'date_sent': new_item.date_sent
+    }}), 201
+
+
 ## USER FACING
 # Webpage so a user can unsubscribe themselves
 @app.route('/unsubscribe/<int:external_key>/<int:list_id>', methods=['GET', 'POST'])
@@ -456,15 +489,15 @@ def unsubscribe(external_key, list_id):
         remove_subscription(user.id, list_id)
         return render_template('unsubscribed.html') # Redirect to homepage or any other page after unsubscribing
 
-@app.route('/submit_feedback/<int:item_content_id>', methods=['GET', 'POST'])
-def submit_feedback(item_content_id):
+@app.route('/submit_feedback/<int:item_content_key>', methods=['GET', 'POST'])
+def submit_feedback(item_content_key):
     if request.method == 'POST':
         comment = request.form['comment']
-        feedback = FeedbackOnItem(item_content_id=item_content_id, comment=comment)
+        feedback = FeedbackOnItem(item_content_key=item_content_key, comment=comment)
         db.session.add(feedback)
         db.session.commit()
         return render_template('submitted_feedback.html')
-    return render_template('submit_feedback.html', item_content_id=item_content_id)
+    return render_template('submit_feedback.html', item_content_key=item_content_key)
 
 
 ### ADMIN ---------------------------
