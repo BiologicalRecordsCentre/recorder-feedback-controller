@@ -68,7 +68,6 @@
                         <th>User name</th>
                         <th>User ID</th>
                         <th>List ID</th>
-                        <th>Unsubscribe</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -78,7 +77,6 @@
                         <td>{{ subscription.user.name }}</td>
                         <td>{{ subscription.user_id }}</td>
                         <td>{{ subscription.list_id }}</td>
-                        <td><a href="/unsubscribe/{{ subscription.user.external_key }}/{{ subscription.list_id}}">Unsubscribe</a></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -106,7 +104,8 @@
                     <td>{{ item.list_id }}</td>
                     <td>{{ item.batch_id }}</td>
                     <td>{{ item.date_sent }}</td>
-                    <td><a href="/submit_feedback/{{ item.id }}">Submit test feedback</a></td>
+                    <td><a href="/submit_feedback/{{ item.content_key }}">Submit test feedback</a></td>
+                    <td><a href="/unsubscribe/{{ item.content_key }}">test unsubscribe</a></td>
                 </tr>
                 {% endfor %}
             </tbody>

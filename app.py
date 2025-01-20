@@ -475,18 +475,21 @@ def create_item():
 
 ## USER FACING
 # Webpage so a user can unsubscribe themselves
-@app.route('/unsubscribe/<int:external_key>/<int:list_id>', methods=['GET', 'POST'])
-def unsubscribe(external_key, list_id):
-    list = get_list_by_id(list_id)
-    user = get_user_by_external_key(external_key)
+@app.route('/unsubscribe/<int:item_content_key>', methods=['GET', 'POST'])
+def unsubscribe(item_content_key):
+    item = Item.query.filter_by(content_key=item_content_key).first()
+
+
+    list_id = item.list_id
+    user_id = item.user_id
     if request.method == 'GET':
         list = get_list_by_id(list_id)
-        user = get_user_by_external_key(external_key)
+        user = User.query.get(user_id)
         # You may want to check if the user is subscribed to the email list before rendering the page
         return render_template('unsubscribe.html', user=user, list=list)
     elif request.method == 'POST':
         # Process the unsubscribe action
-        remove_subscription(user.id, list_id)
+        remove_subscription(user_id, list_id)
         return render_template('unsubscribed.html') # Redirect to homepage or any other page after unsubscribing
 
 @app.route('/submit_feedback/<int:item_content_key>', methods=['GET', 'POST'])
