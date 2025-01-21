@@ -7,7 +7,7 @@ from datetime import datetime
 from functools import wraps
 import os
 
-from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD
+from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_EMAIL, TEST_EXTERNAL_KEY, ADMIN_USERNAME, ADMIN_PASSWORD
 
 app = Flask(__name__)
 
@@ -119,7 +119,7 @@ class Subscription(db.Model):
 
 class Item(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    content_key = db.Column(db.Integer, nullable=False)
+    content_key = db.Column(db.String(120), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     list_id = db.Column(db.Integer, db.ForeignKey('list.id'), nullable=False)
     batch_id = db.Column(db.String(120))
@@ -127,7 +127,7 @@ class Item(db.Model):
 
 class FeedbackOnItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    item_content_key = db.Column(db.Integer, db.ForeignKey('item.content_key'), nullable=False)
+    item_content_key = db.Column(db.String(120), db.ForeignKey('item.content_key'), nullable=False)
     comment = db.Column(db.String(250))
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -137,9 +137,7 @@ def init_db():
 def init_db_test_data():
     # Insert example users
     example_users = [
-        User(external_key='42523', name='Robert H', email='simrol@ceh.ac.uk'),
-        User(external_key='75437', name='Grace S', email='grace@example.com'),
-        User(external_key='54642', name='Alice Johnson', email='alice@example.com')
+        User(external_key=TEST_EXTERNAL_KEY, name='Simon Rolph', email=TEST_EMAIL)
     ]
     db.session.bulk_save_objects(example_users)
 
@@ -153,19 +151,15 @@ def init_db_test_data():
     # Insert example subscriptions
     example_subscriptions = [
         Subscription(user_id=1, list_id=1),
-        Subscription(user_id=1, list_id=2),
-        Subscription(user_id=2, list_id=1),
-        Subscription(user_id=3, list_id=2)
+        Subscription(user_id=1, list_id=2)
     ]
     db.session.bulk_save_objects(example_subscriptions)
 
     # Insert example email history
     example_items = [
-        Item(user_id=1, content_key = 1, list_id=1, batch_id="test_batch1"),
-        Item(user_id=1, content_key = 2, list_id=1, batch_id="test_batch1"),
-        Item(user_id=2, content_key = 3, list_id=1, batch_id="test_batch2"),
-        Item(user_id=2, content_key = 4, list_id=1, batch_id="test_batch2"),
-        Item(user_id=3, content_key = 5, list_id=2, batch_id="test_batch2")
+        Item(user_id=1, content_key = "43242", list_id=1, batch_id="test_batch1"),
+        Item(user_id=1, content_key = "23523", list_id=1, batch_id="test_batch1"),
+        Item(user_id=1, content_key = "53233", list_id=1, batch_id="test_batch2")
     ]
     db.session.bulk_save_objects(example_items)
 
@@ -444,7 +438,7 @@ def api_get_list_subscribers(list_id):
 @requires_auth_api
 def create_item():
     data = request.get_json()
-    content_key = data.get('content_key')
+    content_key = str(data.get('content_key'))
     user_external_key = data.get('user_external_key')
     list_id = data.get('list_id')
     batch_id = data.get('batch_id')
@@ -475,11 +469,9 @@ def create_item():
 
 ## USER FACING
 # Webpage so a user can unsubscribe themselves
-@app.route('/unsubscribe/<int:item_content_key>', methods=['GET', 'POST'])
+@app.route('/unsubscribe/<item_content_key>', methods=['GET', 'POST'])
 def unsubscribe(item_content_key):
     item = Item.query.filter_by(content_key=item_content_key).first()
-
-
     list_id = item.list_id
     user_id = item.user_id
     if request.method == 'GET':
@@ -492,10 +484,11 @@ def unsubscribe(item_content_key):
         remove_subscription(user_id, list_id)
         return render_template('unsubscribed.html') # Redirect to homepage or any other page after unsubscribing
 
-@app.route('/submit_feedback/<int:item_content_key>', methods=['GET', 'POST'])
+@app.route('/submit_feedback/<item_content_key>', methods=['GET', 'POST'])
 def submit_feedback(item_content_key):
     if request.method == 'POST':
         comment = request.form['comment']
+
         feedback = FeedbackOnItem(item_content_key=item_content_key, comment=comment)
         db.session.add(feedback)
         db.session.commit()
@@ -596,10 +589,6 @@ def send_email(recipient,subject,html):
 
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.drop_all()
-        db.create_all()  # Initialize the database when the app starts
-        init_db_test_data() # Insert test data into the database
     app.run(debug=True)
 
 

@@ -20,3 +20,4 @@ MAIL_PASSWORD='PASSWORD'
 MAIL_DEFAULT_SENDER='noreply@example.com'
 
 TEST_EMAIL='youemail@example.com'
+TEST_EXTERNAL_KEY='123'
