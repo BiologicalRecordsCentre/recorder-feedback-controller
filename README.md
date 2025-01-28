@@ -47,7 +47,7 @@ cd recorder-feedback-controller
 #### Option 1: Using virtualenv (preferred)
 
 Create virtualenv
-`python -m virvualenv venv`
+`python -m virtualenv venv`
 
 Activate the virtualenv (not possible on UKCEH managed machines because of IT policies)
 `venv\Scripts\activate` (windows)
@@ -111,3 +111,38 @@ The admin (`/admin`) page gives you some limited functionality for managing the 
 `/export_data` This will export the database as a csv
 
 `/create_list` This will allow you to add a new list
+
+## Deployment
+
+### Posit connect
+
+The app can be (in theory, I haven't actually got it working yet) deployed on a posit connect server. First install the `rsconnect-python` package. See https://docs.posit.co/rsconnect-python/ for documentation about the CLI. Main issue is that it still won't have publicly accessble endpoints unless public
+
+`pip install rsconnect-python`
+
+Create an API key from the Posit Connect website. Use the add command to store information about a Posit Connect server:
+
+```
+rsconnect add \
+    --api-key my-api-key \
+    --server https://connect.example.org \
+    --name myserver
+```
+
+You can then deploy with the following command
+
+```
+rsconnect deploy flask ./ \
+   --entrypoint app.py \
+   --override-python-version 3.9.6 \
+   static/style.css templates/create_list.html templates/index.html templates/send_test_email.html templates/submit_feedback.html templates/submitted_feedback.html templates/unsubscribe.html templates/unsubscribed.html config.py
+```
+
+Do command `rsconnect deploy flask` and it will show you all the options. 
+
+
+
+
+## Notes
+
+If you install new packages, add them to `requirements.txt` using `pip freeze > requirements.txt`
