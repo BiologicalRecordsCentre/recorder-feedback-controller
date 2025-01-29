@@ -6,8 +6,9 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from functools import wraps
 import os
+import json
 
-from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_EMAIL, TEST_EXTERNAL_KEY, ADMIN_USERNAME, ADMIN_PASSWORD
+from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_EMAIL, TEST_EXTERNAL_KEY, ADMIN_USERNAME, ADMIN_PASSWORD, APPLICATION_ROOT
 
 app = Flask(__name__)
 
@@ -15,6 +16,7 @@ app = Flask(__name__)
 # Configuration for the admin authentication
 app.config['ADMIN_USERNAME'] = ADMIN_USERNAME
 app.config['ADMIN_PASSWORD'] = ADMIN_PASSWORD
+app.config["APPLICATION_ROOT"] = APPLICATION_ROOT
 
 # external service api token
 app.config['AUTHENTICATE_API'] = AUTHENTICATE_API
@@ -51,13 +53,32 @@ def authenticate():
         {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
 # Decorator to require authentication (for admin pages)
+def is_running_on_posit():
+    """Check if the app is running on Posit Connect by looking for a specific header."""
+    return "Rstudio-Connect-Credentials" in request.headers
+
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_auth(auth.username, auth.password):
+        if is_running_on_posit():
+            # Posit Connect authentication
+            credentials = request.headers.get("Rstudio-Connect-Credentials")
+            if credentials:
+                credentials_dict = json.loads(credentials)
+                username = credentials_dict.get("user")
+
+                if username == app.config["ADMIN_USERNAME"]:
+                    return f(*args, **kwargs)
+            
             return authenticate()
+        else:
+            # Basic Auth (for local development)
+            auth = request.authorization
+            if not auth or not check_auth(auth.username, auth.password):
+                return authenticate()
+        
         return f(*args, **kwargs)
+
     return decorated
 
 def check_auth_api(token):
