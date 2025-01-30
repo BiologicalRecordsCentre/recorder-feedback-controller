@@ -116,7 +116,7 @@ The admin (`/admin`) page gives you some limited functionality for managing the 
 
 ### Posit connect
 
-The app can be (in theory, I haven't actually got it working yet) deployed on a posit connect server. First install the `rsconnect-python` package. See https://docs.posit.co/rsconnect-python/ for documentation about the CLI. Main issue is that it still won't have publicly accessble endpoints unless public
+The app can be deployed on a posit connect server. First install the `rsconnect-python` package. See https://docs.posit.co/rsconnect-python/ for documentation about the CLI. Main issue is that it still won't have publicly accessble endpoints unless you have permisstion to make thw app public.
 
 `pip install rsconnect-python`
 
@@ -140,8 +140,12 @@ rsconnect deploy flask ./ \
 
 Do command `rsconnect deploy flask` and it will show you all the options. 
 
+Note that the authentication method for admin pages adapts based on the environment:  
 
+- **On Posit Connect**: The app checks the `Rstudio-Connect-Credentials` header to verify the logged-in user. Only the user matching `ADMIN_USERNAME` is granted access.  
+- **Locally (or on non-Posit servers)**: The app falls back to HTTP Basic Authentication, requiring a username and password set in `ADMIN_USERNAME` and `ADMIN_PASSWORD`.  
 
+This ensures secure authentication while allowing seamless local development.
 
 ## Notes
 
