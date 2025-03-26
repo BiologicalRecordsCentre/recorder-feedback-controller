@@ -1,14 +1,12 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
 from flask import current_app as app
 from flask_mail import Mail, Message
-from apscheduler.schedulers.background import BackgroundScheduler
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from functools import wraps
-import os
 import json
 
-from config import SERVICE_API_TOKEN, AUTHENTICATE_API, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_EMAIL, TEST_EXTERNAL_KEY, ADMIN_USERNAME, ADMIN_PASSWORD, APPLICATION_ROOT
+from config import SERVICE_API_TOKEN, AUTHENTICATE_API, SQLALCHEMY_DATABASE_URI, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_EMAIL, TEST_EXTERNAL_KEY, ADMIN_USERNAME, ADMIN_PASSWORD
 
 app = Flask(__name__)
 
@@ -16,7 +14,6 @@ app = Flask(__name__)
 # Configuration for the admin authentication
 app.config['ADMIN_USERNAME'] = ADMIN_USERNAME
 app.config['ADMIN_PASSWORD'] = ADMIN_PASSWORD
-app.config["APPLICATION_ROOT"] = APPLICATION_ROOT
 
 # external service api token
 app.config['AUTHENTICATE_API'] = AUTHENTICATE_API
@@ -32,8 +29,7 @@ app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
 app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
 
 # Configuration for SQLAlchemy
-basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "data", "users.db")}'
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -61,6 +57,9 @@ def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if is_running_on_posit():
+            from config import APPLICATION_ROOT
+            app.config["APPLICATION_ROOT"] = APPLICATION_ROOT
+
             # Posit Connect authentication
             credentials = request.headers.get("Rstudio-Connect-Credentials")
             if credentials:

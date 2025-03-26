@@ -2,6 +2,11 @@
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "secret_password"
 
+#database
+import os
+basedir = os.path.abspath(os.path.dirname(__file__))
+SQLALCHEMY_DATABASE_URI = f'sqlite:///{os.path.join(basedir, "data", "users.db")}'
+
 # Service
 AUTHENTICATE_API = True
 SERVICE_API_TOKEN = "complicated_token"
