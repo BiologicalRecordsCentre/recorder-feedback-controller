@@ -139,7 +139,7 @@ class Subscription(db.Model):
 
 class Item(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    content_key = db.Column(db.String(120), nullable=False)
+    content_key = db.Column(db.String(120), nullable=False,unique =True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     list_id = db.Column(db.Integer, db.ForeignKey('list.id'), nullable=False)
     batch_id = db.Column(db.String(120))
