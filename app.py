@@ -147,7 +147,8 @@ class Item(db.Model):
 
 class FeedbackOnItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    item_content_key = db.Column(db.String(120), db.ForeignKey('item.content_key'), nullable=False)
+    item_content_key = db.Column(db.String(120), db.ForeignKey('item.content_key'), nullable=False)  # Foreign key to content_key
+    item = db.relationship('Item', backref=db.backref('feedback', lazy=True))
     comment = db.Column(db.String(250))
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
