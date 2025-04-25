@@ -6,7 +6,7 @@ from datetime import datetime
 from functools import wraps
 import json
 
-from config import SERVICE_API_TOKEN, AUTHENTICATE_API, SQLALCHEMY_DATABASE_URI, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_EMAIL, TEST_EXTERNAL_KEY, ADMIN_USERNAME, ADMIN_PASSWORD
+from config import SERVICE_API_TOKEN, AUTHENTICATE_API, SQLALCHEMY_DATABASE_URI, DISPATCH_METHOD, MAIL_SERVER, MAIL_PORT, MAIL_USE_TLS, MAIL_USE_SSL, MAIL_USERNAME, MAIL_PASSWORD, MAIL_DEFAULT_SENDER, TEST_EMAIL, TEST_EXTERNAL_KEY, ADMIN_USERNAME, ADMIN_PASSWORD
 
 app = Flask(__name__)
 
@@ -20,6 +20,7 @@ app.config['AUTHENTICATE_API'] = AUTHENTICATE_API
 app.config['SERVICE_API_TOKEN'] = SERVICE_API_TOKEN
 
 # Flask-mail config
+app.config['DISPATCH_METHOD'] = DISPATCH_METHOD
 app.config['MAIL_SERVER'] = MAIL_SERVER
 app.config['MAIL_PORT'] = MAIL_PORT
 app.config['MAIL_USE_TLS'] = MAIL_USE_TLS
@@ -603,11 +604,17 @@ mail = Mail(app)
 # Function to send email
 def send_email(recipient,subject,html):
     from app import app, mail
-    with app.app_context():
-        msg = Message(subject=subject, recipients=[recipient])
-        msg.html = html
-        mail.send(msg)
-        print("Email sent successfully at", datetime.now())
+
+    if app.config['DISPATCH_METHOD'] != 'email':
+        print("Email dispatch method is not set to email. No email will be sent.")
+        return
+    else:
+        print("Email dispatch method is set to email. Sending email...")
+        with app.app_context():
+            msg = Message(subject=subject, recipients=[recipient])
+            msg.html = html
+            mail.send(msg)
+            print("Email sent successfully at", datetime.now())
 
 
 if __name__ == '__main__':
