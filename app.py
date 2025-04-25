@@ -460,14 +460,15 @@ def api_get_list_subscribers(list_id):
 def create_item():
     data = request.get_json()
     content_key = str(data.get('content_key'))
-    user_external_key = data.get('user_external_key')
+    user_external_key = str(data.get('user_external_key'))
     list_id = data.get('list_id')
     batch_id = data.get('batch_id')
 
     if not content_key or not user_external_key or not list_id:
         return jsonify({'error': 'Missing required fields'}), 400
 
-    user_id = get_user_by_external_key(user_external_key).id
+    user = get_user_by_external_key(user_external_key)
+    user_id = user.id
 
     new_item = Item(
         content_key=content_key,
