@@ -98,6 +98,8 @@ python app.py
 
 Then navigate to `http://127.0.0.1:5000/` taking you to the limited front end. Click on the link to go to the admin panel and enter the username (default: `admin`) and password you specified in `config.py`.
 
+Create a list using `Create a new list` link.
+
 ### Admin
 
 The admin (`/admin`) page gives you some limited functionality for managing the database. It provides tables of lists, users, subscriptions (the links between lists and users), dispatch history, and feedback. There are links to unsubscribe a user from a list or submit test feedback for an item.
@@ -147,6 +149,83 @@ Note that the authentication method for admin pages adapts based on the environm
 
 This ensures secure authentication while allowing seamless local development.
 
+### Virtual machine
+
+### Deploying on a Virtual Machine
+
+To deploy the Recorder Feedback Controller App on a virtual machine, follow these steps:
+
+#### Set up the virtual machine
+Use a machine with a Linux-based operating system. We use a rocky 9 OS for UKCEH virtual machines.
+Ensure the VM has at least 8GB of RAM and sufficient disk space for the application and database.
+The machine needs to have Python installed.
+
+#### Clone the repository
+```
+git clone https://github.com/simonrolph/recorder-feedback-controller.git
+cd recorder-feedback-controller
+```
+
+#### Set up a virtual environment
+
+```
+python -m virtualenv venv
+source venv/bin/activate
+```
+
+#### Install Python packages
+
+```
+python -m pip install -r requirements.txt
+```
+
+#### Configure the application
+
+Copy the example configuration file and edit it:
+```
+cp config_example.py config.py
+vim config.py
+```
+
+#### Set up the database
+
+The app uses SQLAlchemy which can work with a vareity of database types. We use a PostgreSQL database running on a different virtual machine. For example, on your database hosting machine log in with your Postqres username and password (this is not the same as your UKCEH general username and password), this will prompt you to enter your password:
+```
+psql -U [USERNAME]
+```
+
+You can then create the database:
+```
+=> CREATE DATABASE recorder_feedback_db;
+```
+
+Some useful actions
+ - View what databse have been created with `=> \list`
+ - You can see the port that the database is using with `=> SHOW port`
+ - Quit out of Postgres using `=> \q`
+ - Check postgres status with `systemctl status postgresql`
+
+You then need to edit `config.py` of the controller app to point to the newly created database
+```
+SQLALCHEMY_DATABASE_URL = "postgresql://[psql_username]:[postgresql_password]@[address_of_virtualmachine]:[port]/[database_name]"
+```
+
+This tutorial provides guidance on how to use a PostgreSQL database with a flask application: https://www.digitalocean.com/community/tutorials/how-to-use-a-postgresql-database-in-a-flask-application
+
+#### Run the application
+
+Run the application locally as above with:
+```
+python app.py
+```
+It will be available at `localhost:5000`
+
+Or serve the application using waitress https://docs.pylonsproject.org/projects/waitress/en/stable/runner.html:
+```
+waitress-serve --port 8080 app:app
+```
+It will be available at either 0.0.0.0:8080, or if accessing from another machine use the IP address and port (or webaddress of the machine e.g. `[machinename].scicom.ceh.ac.uk:8080`).
+   
 ## Notes
 
 If you install new packages, add them to `requirements.txt` using `pip freeze > requirements.txt`
