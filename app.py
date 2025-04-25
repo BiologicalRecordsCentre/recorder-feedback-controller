@@ -570,7 +570,7 @@ def export_data_page():
 def reset_data():
     db.drop_all()
     db.create_all()  # Initialize the database when the app starts
-    init_db_test_data() # Insert test data into the database
+    #init_db_test_data() # Insert test data into the database
     return redirect(url_for('admin'))
 
 # Route to trigger sending of test email
