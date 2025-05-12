@@ -229,7 +229,7 @@ def insert_subscription(user_id, list_id):
     user = User.query.get(user_id)
     db.session.add(subscription)
     db.session.commit()
-    send_email(user.email, "Unsubscribed", f"You have been subscribed {get_list_name(list_id)}")
+    send_email(user.email, "New Recorder Feedback Subscription", f"You have been subscribed to {get_list_name(list_id)}")
 
 def remove_subscription(user_id, list_id):
     subscription = Subscription.query.filter_by(user_id=user_id, list_id=list_id).first()
@@ -237,7 +237,7 @@ def remove_subscription(user_id, list_id):
     if subscription:
         db.session.delete(subscription)
         db.session.commit()
-        send_email(user.email, "Unsubscribed", f"You have been unsubscribed from {get_list_name(list_id)}")
+        send_email(user.email, "Recorder Feedback Subscription Removed", f"You have been unsubscribed from {get_list_name(list_id)}")
 
 def get_subscriptions(user_id):
     return Subscription.query.filter_by(user_id=user_id).all()
